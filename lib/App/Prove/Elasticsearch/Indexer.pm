@@ -7,6 +7,8 @@ use strict;
 use warnings;
 use utf8;
 
+use Search::Elasticsearch();
+
 =head1 SYNOPSIS
 
     App::Prove::Elasticsearch::Indexer::check_index({ 'server.host' => 'zippy.test', 'server.port' => 9600 });
@@ -23,15 +25,16 @@ Dies if the server cannot be reached, or the index creation fails.
 sub check_index {
     my $conf = shift;
 
-    my $port = $cfg->{'server:port'} ? ':'.$cfg->{'server:port'} : '';
-    my $serveraddress = "$config->{'server:host'}$port";
-    die("server and port must be specified") unless ;
+    my $port = $conf->{'server:port'} ? ':'.$conf->{'server:port'} : '';
+    my $serveraddress = "$conf->{'server:host'}$port";
+    die("server and port must be specified") unless $serveraddress;
     my $e = Search::Elasticsearch->new(
         nodes           => $serveraddress,
     );
-    if (!$e->indices->exists( index => 'testsuite' )) {
+    my $indexer = $conf->{'client:indexer'} // 'App::Prove::Elasticsearch::Indexer';
+    if (!$e->indices->exists( index => $indexer::index )) {
         $e->indices->create(
-            index => 'testsuite',
+            index => $indexer::index,
             body  => {
                 index => {
                     number_of_shards   => "3",
@@ -73,6 +76,7 @@ sub check_index {
                             executor           => { type => "text" },
                             status             => { type => "text" },
                             VERSION            => { type => "text" },
+                            platform           => { type => "text" },
                             path               => { type => "text" },
                             body               => {
                                 type        => "text",
@@ -111,6 +115,40 @@ sub check_index {
     }
     return 0;
 }
+
+sub index_results {
+    my ($conf,$result) = @_;
+
+    my $port = $conf->{'server:port'} ? ':'.$conf->{'server:port'} : '';
+    my $serveraddress = "$conf->{'server:host'}$port";
+    die("server and port must be specified") unless $serveraddress;
+    my $e = Search::Elasticsearch->new(
+        nodes           => $serveraddress,
+    );
+    my $indexer = $conf->{'client.indexer'} // 'App::Prove::Elasticsearch::Indexer';
+    $e->index(
+        index => $indexer::index,
+        type  => 'result',
+        body  => $result,
+    );
+
+    my $doc_exists = $e->exists(index => $indexer::index, type => 'result', name => $result->{'name'}, path => $result->{path} );
+    if (!int($doc_exists)) {
+        die "Failed to Index $result->{'name'}\n";
+    } else {
+        print "Successfully Indexed Ticket ID: $result->{'name'}\n";
+    }
+}
+
+=head1 VARIABLES
+
+=head2 index
+
+The name of the elasticsearch index used.
+
+=cut
+
+our $index = 'testsuite';
 
 1;
 

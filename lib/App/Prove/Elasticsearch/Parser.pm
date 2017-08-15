@@ -10,6 +10,7 @@ use utf8;
 use parent qw/TAP::Parser/;
 
 use Clone qw{clone};
+use File::Basename qw{basename dirname};
 
 =head1 SYNOPSIS
 
@@ -36,20 +37,27 @@ sub new {
     };
 
     my $esopts = {
-        'server.host'      => delete $opts->{'server.host'},
-        'server.port'      => delete $opts->{'server.host'},
-        'client.indexer'   => delete $opts->{'client.indexer'},
-        'client.versioner' => delete $opts->{'client.versioner'},
-        'client.blamer'    => delete $opts->{'client.blamer'},
+        'server.host'       => delete $opts->{'server.host'},
+        'server.port'       => delete $opts->{'server.host'},
+        'client.indexer'    => delete $opts->{'client.indexer'},
+        'client.versioner'  => delete $opts->{'client.versioner'},
+        'client.blamer'     => delete $opts->{'client.blamer'},
+        'client.platformer' => delete $opts->{'client.platformer'},
     };
 
     #XXX maybe this could be done in the plugin and passed down? probably more efficient
-    my $versioner = $esopts->{'client.versioner'};
-    my $blamer    = $esopts->{'client.blamer'};
+    my $versioner  = $esopts->{'client.versioner'};
+    my $blamer     = $esopts->{'client.blamer'};
+    my $indexer    = $esopts->{'client.indexer'};
+    my $platformer = $esopts->{'client.platformer'};
     require $versioner;
     require $blamer;
-    $self->{executor}  = $blamer::get_responsible_party();
-    $self->{version}   = $versioner::get_version();
+    require $platformer;
+    require $indexer;
+    $self->{executor} = $blamer::get_responsible_party();
+    $self->{version}  = $versioner::get_version();
+    $self->{platform} = $platformer::get_platforms();
+    $self->{indexer}  = $indexer;
 
     $self->{steps}     = [];
     $self->{starttime} = time();
@@ -66,17 +74,11 @@ sub unknownCallback {
 
     #Unofficial "Extensions" to TAP
     my ($status_override) = $line =~ m/^% mark_status=([a-z|_]*)/;
-    if ($status_override) {
-        cluck "Unknown status override"
-          unless defined $self->{'tr_opts'}->{$status_override}->{'id'};
-        $self->{'global_status'} =
-          $self->{'tr_opts'}->{$status_override}->{'id'}
-          if $self->{'tr_opts'}->{$status_override};
-        print "# Overriding status to $status_override ("
-          . $self->{'global_status'}
-          . ")...\n"
-          if $self->{'global_status'};
-    }
+    $self->{global_status} = $status_override if $status_override;
+
+    #Allow the parser to operate on TAP files
+    my $file = _getFilenameFromTapLine($line);
+    $self->{'file'} = $file if !$self->{'file'} && $file;
 
     return;
 }
@@ -132,7 +134,7 @@ sub testCallback {
      #Test done.  Record elapsed time.
     my $tm = time();
     push(@{$self->{steps}},{
-        elapsed => _compute_elapsed( $self->{'lasttime'}, $tm ),
+        elapsed => ($tm - $self->{'lasttime'}),
         step    => $test->number, #XXX TODO maybe this isn't right
         name    => $test_name,
         status  => $status_name,
@@ -155,9 +157,42 @@ sub EOFCallback {
     my ($self) = @_;
 
     #Test done.  Record elapsed time.
-    $self->{'elapsed'} = _compute_elapsed( $self->{'starttime'}, time() );
+    $self->{'elapsed'} = (time() - $self->{'starttime'} );
 
-    #TODO actually do the upload to ES
+    my $todo_failed = $self->todo() - $self->todo_passed();
+    my $status = 'NOT OK' if $self->has_problems();
+
+    $status = 'TODO PASSED' if $self->todo_passed() && !$self->failed() && $self->is_good_plan();    #If no fails, but a TODO pass, mark as TODOP
+
+    $status = 'TODO FAILED' if $todo_failed && !$self->failed() && $self->is_good_plan();    #If no fails, but a TODO fail, prefer TODOF to TODOP
+
+    $status = "SKIPPED" if $self->skip_all();    #Skip all, whee
+
+    #Global status override
+    $status = $self->{'global_status'} if $self->{'global_status'};
+
+    #Notify user about bad plan a bit better, supposing we haven't bailed
+    if ( !$self->is_good_plan() && !$self->{'is_bailout'} ) {
+        $self->{'raw_output'} .=
+            "\n# ERROR: Bad plan.  You ran "
+          . $self->tests_run
+          . " tests, but planned "
+          . $self->tests_planned . ".";
+    }
+
+    my $indexer = $self->{indexer};
+    $indexer::index_results( $self->{es_opts}, {
+        body     => $self->{raw_output},
+        elapsed  => $self->{elapsed},
+        occurred => $self->{starttime},
+        status   => $self->{global_status},
+        platform => $self->{platform},
+        executor => $self->{executor},
+        version  => $self->{version},
+        name     => basename($self->{name}),
+        path     => dirname($self->{name}),
+        steps    => $self->{steps},
+    );
 
     return $cres;
 }
@@ -168,32 +203,37 @@ sub planCallback {
     $self->{raw_output} .= $plan->as_string;
 }
 
-#Compute the expected testrail date interval from 2 unix timestamps.
-sub _compute_elapsed {
-    my ( $begin, $end ) = @_;
-    my $secs_elapsed  = $end - $begin;
-    my $mins_elapsed  = floor( $secs_elapsed / 60 );
-    my $secs_remain   = $secs_elapsed % 60;
-    my $hours_elapsed = floor( $mins_elapsed / 60 );
-    my $mins_remain   = $mins_elapsed % 60;
+sub _getFilenameFromTapLine {
+    my $orig = shift;
 
-    my $datestr = "";
+    $orig =~ s/ *$//g;    # Strip all trailing whitespace
 
-    #You have bigger problems if your test takes days
-    if ($hours_elapsed) {
-        $datestr .= "$hours_elapsed" . "h $mins_remain" . "m";
-    }
-    else {
-        $datestr .= "$mins_elapsed" . "m";
-    }
-    if ($mins_elapsed) {
-        $datestr .= " $secs_remain" . "s";
-    }
-    else {
-        $datestr .= " $secs_elapsed" . "s";
-    }
-    undef $datestr if $datestr eq "0m 0s";
-    return $datestr;
+    #Special case
+    my ($is_skipall) = $orig =~ /(.*)\.+ skipped:/;
+    return $is_skipall if $is_skipall;
+
+    my @process_split = split( / /, $orig );
+    return 0 unless scalar(@process_split);
+    my $dotty =
+      pop @process_split;    #remove the ........ (may repeat a number of times)
+    return 0
+      if $dotty =~
+      /\d/;  #Apparently looking for literal dots returns numbers too. who knew?
+    chomp $dotty;
+    my $line = join( ' ', @process_split );
+
+    #IF it ends in a bunch of dots
+    #AND it isn't an ok/not ok
+    #AND it isn't a comment
+    #AND it isn't blank
+    #THEN it's a test name
+
+    return $line
+      if ( $dotty =~ /^\.+$/
+        && !( $line =~ /^ok|not ok/ )
+        && !( $line =~ /^# / )
+        && $line );
+    return 0;
 }
 
 1;
