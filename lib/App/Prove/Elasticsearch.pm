@@ -9,7 +9,6 @@ use utf8;
 
 use Config::Simple();
 use File::HomeDir();
-use Search::Elasticsearch();
 
 =head1 SYNOPSIS
 
@@ -31,6 +30,8 @@ Creates an index (if it does not exist)  called 'testsuite' in your specified El
 
 =item B<version>: the version of the system under test.  See the versioner option as to how this is obtained.
 
+=item B<environment>: the environment of the system under test.  See the platformer option as to how this is obtained.
+
 =item B<name>: the filename of the test run
 
 =item B<path>: the path to the test.  This is to allow tests with the same name at different paths to report correctly.
@@ -46,9 +47,12 @@ If an index exists with that name an exception will be thrown.
 To override the index name to avoid exceptions, subclass App::Prove::Elasticsearch::Indexer and use your own name.
 The name searched for must be a child of the App::Prove::Elasticsearch::Indexer, e.g. App::Prove::Elasticsearch::Indexer::EvilIndexer.
 
+You may have noticed that this pluggable design does not necessarily mean you need to use elasticsearch as your indexer;
+so long as the information above is all you need for your test management system, there's no reason you couldn't make a custom indexer for it.
+
 =head2 VERSIONER
 
-The version getter is necessarily complicated, as all modules do not necessarily provide a reliable method of acquiring this.
+The version getter is necessarily complicated, as all perl modules do not necessarily provide a reliable method of acquiring this.
 As such this behavior can be modified with the versioner= parameter.
 This module ships with various versioners:
 
@@ -64,6 +68,22 @@ This module ships with various versioners:
 
 App::Prove::Elasticsearch::Provisioner is built to be subclassed to discern the version used by your application.
 For example, App::Prove::Elasticsearch::Provisioner::Default provides the 'Default' versioner.
+
+=head2 PLATFORMER
+
+Given that tests run on various platforms, we need a flexible way to determine that information.
+As such, I've provided (you guessed it) yet another pluggable interface, App::Prove::Elasticsearch::Platformer.
+Here are the shipped plugins:
+
+=over 4
+
+=item B<Default>: use Sys::Info::OS to determine the operating system environment.
+
+=item B<Env>: use $ENV{TESTSUITE_PLATFORM} as the environment.  Accepts comma separated variables.
+
+=back
+
+Unlike the other pluggable interfaces, this is intended to return an array of platforms describing the system under test.
 
 =head2 BLAMER
 
@@ -109,8 +129,6 @@ sub load {
     my $homedir = File::HomeDir::my_home() || '.';
     if (-e $homedir) {
         Config::Simple->import_from("$homedir/elastest.conf", $conf) or die Config::Simple->error();
-        use Data::Dumper;
-        die Dumper($conf);
     }
 
     my @kvp = ();
@@ -136,7 +154,7 @@ sub load {
         $ENV{$km} = $conf->{$key};
     }
 
-    my $index_suffix = $config->{'client.indexer'} ? "::".$config->{'client.indexer'} : '';
+    my $index_suffix = $conf->{'client.indexer'} ? "::".$conf->{'client.indexer'} : '';
     my $indexer = "App::Prove::Elasticsearch::Indexer$index_suffix";
     require $indexer;
     $indexer::check_index($conf);
