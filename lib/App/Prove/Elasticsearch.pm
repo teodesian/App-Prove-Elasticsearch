@@ -77,7 +77,7 @@ Here are the shipped plugins:
 
 =over 4
 
-=item B<Default>: use Sys::Info::OS to determine the operating system environment.
+=item B<Default>: use Sys::Info::OS to determine the operating system environment, and $^V for the interpreter environment.
 
 =item B<Env>: use $ENV{TESTSUITE_PLATFORM} as the environment.  Accepts comma separated variables.
 
