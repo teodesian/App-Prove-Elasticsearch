@@ -10,5 +10,6 @@ use utf8;
 use Sys::Info::OS;
 
 sub get_platforms {
-    return [ Sys::Info::OS::get_os(), $^V ]
+    my $info = Sys::Info::OS->new();
+    return [ $info->name( edition => 1 ), $^V ]
 }

@@ -7,6 +7,10 @@ use strict;
 use warnings;
 use utf8;
 
-sub get_version {
+use Git;
 
+sub get_version {
+    my $out = Git::command_oneline('log', '--format=format:%H');
+    my @shas = split(/\n/,$out);
+    return shift(@shas);
 }
