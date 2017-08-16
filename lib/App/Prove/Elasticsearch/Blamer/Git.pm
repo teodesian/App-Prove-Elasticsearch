@@ -14,3 +14,5 @@ sub get_responsible_party {
     chomp $email;
     return $email;
 }
+
+1;
