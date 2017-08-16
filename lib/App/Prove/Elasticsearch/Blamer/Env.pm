@@ -11,3 +11,5 @@ sub get_responsible_party {
     die "TESTSUITE_EXECUTOR not set" unless $ENV{TESTSUITE_EXECUTOR};
     return $ENV{TESTSUITE_EXECUTOR};
 }
+
+1;

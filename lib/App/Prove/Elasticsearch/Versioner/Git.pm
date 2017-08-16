@@ -14,3 +14,5 @@ sub get_version {
     my @shas = split(/\n/,$out);
     return shift(@shas);
 }
+
+1;

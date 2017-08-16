@@ -11,3 +11,5 @@ sub get_version {
     die "TESTSUITE_VERSION not set" unless $ENV{TESTSUITE_VERSION};
     return $ENV{TESTSUITE_VERSION};
 }
+
+1;

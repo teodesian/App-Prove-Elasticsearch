@@ -20,3 +20,5 @@ sub get_version {
     die 'Could not determine the latest version from CHANGES!' unless $ret;
     return $ret;
 }
+
+1;

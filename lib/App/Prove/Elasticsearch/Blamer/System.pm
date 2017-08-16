@@ -10,3 +10,5 @@ use utf8;
 sub get_responsible_party {
     return getpwuid($<).'@'.gethostname();
 }
+
+1;

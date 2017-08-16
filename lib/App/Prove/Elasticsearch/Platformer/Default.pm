@@ -13,3 +13,5 @@ sub get_platforms {
     my $info = Sys::Info::OS->new();
     return [ $info->name( edition => 1 ), $^V ]
 }
+
+1;

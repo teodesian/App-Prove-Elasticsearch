@@ -12,3 +12,5 @@ sub get_platforms {
     my @ret = split(/,/,$ENV{TESTSUITE_PLATFORM});
     return \@ret;
 }
+
+1;
