@@ -16,5 +16,3 @@ is(App::Prove::Elasticsearch::Blamer::Default::get_responsible_party(),'TEODESIA
     local $0 = 't/data/bogus/zippy.t';
     like(exception { App::Prove::Elasticsearch::Blamer::Default::get_responsible_party() },qr/could not determine/i,"get_responsible_party dies on no author in CHANGES");
 }
-
-
