@@ -7,6 +7,10 @@ use strict;
 use warnings;
 use utf8;
 
-sub get_responsible_party {
+use Git;
 
+sub get_responsible_party {
+    my $email = Git::command_oneline('config', 'user.email');
+    chomp $email;
+    return $email;
 }
