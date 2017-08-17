@@ -26,8 +26,9 @@ sub check_index {
     my $conf = shift;
 
     my $port = $conf->{'server:port'} ? ':'.$conf->{'server:port'} : '';
+    die "server must be specified" unless $conf->{'server:host'};
+    die("port must be specified") unless $port;
     my $serveraddress = "$conf->{'server:host'}$port";
-    die("server and port must be specified") unless $serveraddress;
     my $e = Search::Elasticsearch->new(
         nodes           => $serveraddress,
     );
