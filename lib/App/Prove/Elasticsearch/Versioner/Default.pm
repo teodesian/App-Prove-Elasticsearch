@@ -7,13 +7,14 @@ use strict;
 use warnings;
 use utf8;
 
+use File::Basename qw{dirname};
 
 sub get_version {
     my $loc = dirname($0);
     my $ret;
     open(my $fh, '<', "$loc/../CHANGES") or die "Could not open CHANGES";
     while (<$fh>) {
-        ($ret) = $_ =~ m/(^\w)/;
+        ($ret) = $_ =~ m/(^\S*)/;
         last if $ret;
     }
     close $fh;
