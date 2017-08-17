@@ -11,7 +11,7 @@ use Sys::Info::OS;
 
 sub get_platforms {
     my $info = Sys::Info::OS->new();
-    return [ $info->name( edition => 1 ), $^V ]
+    return [ $info->name( edition => 1, long => 1 ), $] ]
 }
 
 1;
