@@ -7,8 +7,11 @@ use strict;
 use warnings;
 use utf8;
 
+use Sys::Info::OS;
+
 sub get_responsible_party {
-    return getpwuid($<).'@'.gethostname();
+    my $info = Sys::Info::OS->new();
+    return $info->login_name().'@'.$info->host_name();
 }
 
 1;
