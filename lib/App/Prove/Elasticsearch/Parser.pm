@@ -40,9 +40,9 @@ sub new {
         'server.host'       => delete $opts->{'server.host'},
         'server.port'       => delete $opts->{'server.host'},
         'client.indexer'    => delete $opts->{'client.indexer'},
-        'client.versioner'  => delete $opts->{'client.versioner'},
-        'client.blamer'     => delete $opts->{'client.blamer'},
-        'client.platformer' => delete $opts->{'client.platformer'},
+        'client.versioner'  => delete $opts->{'client.versioner'} // 'Default',
+        'client.blamer'     => delete $opts->{'client.blamer'} // 'Default',
+        'client.platformer' => delete $opts->{'client.platformer'} // 'Default',
     };
 
     #XXX maybe this could be done in the plugin and passed down? probably more efficient
@@ -50,13 +50,17 @@ sub new {
     my $blamer     = $esopts->{'client.blamer'};
     my $indexer    = $esopts->{'client.indexer'};
     my $platformer = $esopts->{'client.platformer'};
-    require $versioner;
-    require $blamer;
-    require $platformer;
-    require $indexer;
-    $self->{executor} = $blamer::get_responsible_party();
-    $self->{version}  = $versioner::get_version();
-    $self->{platform} = $platformer::get_platforms();
+    eval 'require $versioner';
+    die $@ if $@;
+    eval 'require $blamer';
+    die $@ if $@;
+    eval 'require $platformer';
+    die $@ if $@;
+    eval 'require $indexer';
+    die $@ if $@;
+    $self->{executor} = &{\&{"App::Prove::Elastisearch::$blamer"."::get_responsible_party"}}();
+    $self->{version}  = &{\&{"App::Prove::Elastisearch::$versioner"."::get_version"}}();
+    $self->{platform} = &{\&{"App::Prove::Elastisearch::$platformer"."::get_platforms"}}();
     $self->{indexer}  = $indexer;
 
     $self->{steps}     = [];
@@ -180,8 +184,7 @@ sub EOFCallback {
           . $self->tests_planned . ".";
     }
 
-    my $indexer = $self->{indexer};
-    $indexer::index_results( $self->{es_opts}, {
+    &{\&{$self->{indexer}."::index_results"}}( $self->{es_opts}, {
         body     => $self->{raw_output},
         elapsed  => $self->{elapsed},
         occurred => $self->{starttime},

@@ -1,7 +1,7 @@
-# PODNAME:  App::Prove::Elasticsearch
+# PODNAME:  App::Prove::Plugin::Elasticsearch
 # ABSTRACT: Prove Plugin to upload test results to elastic search as they are executed
 
-package App::Prove::Elasticsearch;
+package App::Prove::Plugin::Elasticsearch;
 
 use strict;
 use warnings;
@@ -156,8 +156,12 @@ sub load {
 
     my $index_suffix = $conf->{'client.indexer'} ? "::".$conf->{'client.indexer'} : '';
     my $indexer = "App::Prove::Elasticsearch::Indexer$index_suffix";
-    require $indexer;
-    $indexer::check_index($conf);
+
+    eval "require $indexer";
+    die $@ if $@;
+    $ENV{CLIENT_INDEXER} = $indexer;
+
+    &{ \&{$indexer . "::check_index"} }($conf);
 
     return $class;
 }
