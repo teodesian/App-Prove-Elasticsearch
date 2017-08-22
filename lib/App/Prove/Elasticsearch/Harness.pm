@@ -44,7 +44,9 @@ sub make_parser {
 
     my $args = $self->SUPER::_get_parser_args($job);
 
-    foreach my $key (keys(%ENV)) {
+    my @relevant_keys = qw{SERVER_HOST SERVER_PORT CLIENT_INDEXER CLIENT_BLAMER CLIENT_VERSIONER CLIENT_PLATFORMER};
+    my @keys_filtered = grep { my $subj = $_; grep {$_ eq $subj} @relevant_keys } keys(%ENV);
+    foreach my $key (@keys_filtered) {
         my $km = lc($key);
         $km =~ s/_/./g;
         $args->{$km} = $ENV{$key};
