@@ -125,7 +125,21 @@ sub load {
     my $app  = $prove->{app_prove};
     my $args = $prove->{args};
 
+    my $conf = _process_configuration($args);
+
+    $app->harness('App::Prove::Elasticsearch::Harness');
+    $app->merge(1);
+
+    my $indexer = _require_deps($conf);
+    &{ \&{$indexer . "::check_index"} }($conf);
+
+    return $class;
+}
+
+sub _process_configuration {
+    my $args = shift;
     my $conf = {};
+
     my $homedir = File::HomeDir::my_home() || '.';
     if (-e $homedir) {
         Config::Simple->import_from("$homedir/elastest.conf", $conf) or die Config::Simple->error();
@@ -145,28 +159,28 @@ sub load {
         $conf->{$key} = $value;
     }
 
-    $app->harness('App::Prove::Elasticsearch::Harness');
-    $app->merge(1);
-
+    #Set ENV for use by harness
     foreach my $key (keys(%$conf)) {
         my $km = uc($key);
         $km =~ s/\./_/g;
         $ENV{$km} = $conf->{$key};
     }
 
+    return $conf;
+}
+
+sub _require_deps {
+    my $conf = shift;
     my $index_suffix = $conf->{'client.indexer'} ? "::".$conf->{'client.indexer'} : '';
     my $indexer = "App::Prove::Elasticsearch::Indexer$index_suffix";
 
     eval "require $indexer";
     die $@ if $@;
+
+    #Set ENV for use by harness
     $ENV{CLIENT_INDEXER} = $indexer;
-
-    &{ \&{$indexer . "::check_index"} }($conf);
-
-    return $class;
+    return $indexer;
 }
-
-
 
 1;
 

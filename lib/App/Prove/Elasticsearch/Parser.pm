@@ -45,6 +45,14 @@ sub new {
         'client.platformer' => delete $opts->{'client.platformer'} // 'Default',
     };
 
+    my $self = $class->SUPER::new($opts);
+    if ( defined( $self->{'_iterator'}->{'command'} )
+        && ref( $self->{'_iterator'}->{'command'} ) eq 'ARRAY' )
+    {
+        $self->{'file'} = $self->{'_iterator'}->{'command'}->[-1];
+        print "# PROCESSING RESULTS FROM TEST FILE: $self->{'file'}\n";
+    }
+
     #XXX maybe this could be done in the plugin and passed down? probably more efficient
     my $versioner  = $esopts->{'client.versioner'};
     my $blamer     = $esopts->{'client.blamer'};
@@ -195,9 +203,9 @@ sub EOFCallback {
         name     => basename($self->{name}),
         path     => dirname($self->{name}),
         steps    => $self->{steps},
-    );
+    });
 
-    return $cres;
+    return $self->{global_status};
 }
 
 sub planCallback {
