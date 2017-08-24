@@ -38,7 +38,7 @@ sub new {
 
     my $esopts = {
         'server.host'       => delete $opts->{'server.host'},
-        'server.port'       => delete $opts->{'server.host'},
+        'server.port'       => delete $opts->{'server.port'},
         'client.indexer'    => delete $opts->{'client.indexer'},
         'client.versioner'  => delete $opts->{'client.versioner'} // 'Default',
         'client.blamer'     => delete $opts->{'client.blamer'} // 'Default',
@@ -54,27 +54,33 @@ sub new {
     }
 
     #XXX maybe this could be done in the plugin and passed down? probably more efficient
-    my $versioner  = $esopts->{'client.versioner'};
-    my $blamer     = $esopts->{'client.blamer'};
-    my $indexer    = $esopts->{'client.indexer'};
-    my $platformer = $esopts->{'client.platformer'};
-    eval 'require $versioner';
-    die $@ if $@;
-    eval 'require $blamer';
-    die $@ if $@;
-    eval 'require $platformer';
-    die $@ if $@;
-    eval 'require $indexer';
-    die $@ if $@;
-    $self->{executor} = &{\&{"App::Prove::Elastisearch::$blamer"."::get_responsible_party"}}();
-    $self->{version}  = &{\&{"App::Prove::Elastisearch::$versioner"."::get_version"}}();
-    $self->{platform} = &{\&{"App::Prove::Elastisearch::$platformer"."::get_platforms"}}();
+    my ($versioner,$blamer,$indexer,$platformer) = $self->_require_deps($esopts);
+    $self->{executor} = &{\&{$blamer."::get_responsible_party"}}();
+    $self->{sut_version}  = &{\&{$versioner."::get_version"}}();
+    $self->{platform} = &{\&{$platformer."::get_platforms"}}();
     $self->{indexer}  = $indexer;
 
     $self->{steps}     = [];
     $self->{starttime} = time();
     $self->{es_opts}   = $esopts;
     return $self;
+}
+
+sub _require_deps {
+    my ($self,$esopts) = @_;
+    my $versioner  = "App::Prove::Elasticsearch::Versioner::".$esopts->{'client.versioner'};
+    my $blamer     = "App::Prove::Elasticsearch::Blamer::".$esopts->{'client.blamer'};
+    my $indexer    = $esopts->{'client.indexer'};
+    my $platformer = "App::Prove::Elasticsearch::Platformer::".$esopts->{'client.platformer'};
+    eval "require $versioner";
+    die $@ if $@;
+    eval "require $blamer";
+    die $@ if $@;
+    eval "require $platformer";
+    die $@ if $@;
+    eval "require $indexer";
+    die $@ if $@;
+    return ($versioner,$blamer,$indexer,$platformer);
 }
 
 # Look for file boundaries, etc.
@@ -145,6 +151,7 @@ sub testCallback {
 
      #Test done.  Record elapsed time.
     my $tm = time();
+    $self->{lasttime} //= $tm;
     push(@{$self->{steps}},{
         elapsed => ($tm - $self->{'lasttime'}),
         step    => $test->number, #XXX TODO maybe this isn't right
@@ -193,16 +200,16 @@ sub EOFCallback {
     }
 
     &{\&{$self->{indexer}."::index_results"}}( $self->{es_opts}, {
-        body     => $self->{raw_output},
-        elapsed  => $self->{elapsed},
-        occurred => $self->{starttime},
-        status   => $self->{global_status},
-        platform => $self->{platform},
-        executor => $self->{executor},
-        version  => $self->{version},
-        name     => basename($self->{name}),
-        path     => dirname($self->{name}),
-        steps    => $self->{steps},
+        body         => $self->{raw_output},
+        elapsed      => $self->{elapsed},
+        occurred     => $self->{starttime},
+        status       => $self->{global_status},
+        platform     => $self->{platform},
+        executor     => $self->{executor},
+        sut_version  => $self->{sut_version},
+        name         => basename($self->{file}),
+        path         => dirname($self->{file}),
+        steps        => $self->{steps},
     });
 
     return $self->{global_status};
