@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 3;
+use Test::More tests => 11;
 use Test::Fatal;
 use Test::Deep;
 use Capture::Tiny qw{capture_merged};
@@ -38,7 +38,7 @@ my @expected_modules = (
 
 {
     no warnings qw{redefine once};
-    local *App::Prove::Elasticsearch::Indexer::index_results = sub { shift; diag explain shift; };
+    local *App::Prove::Elasticsearch::Indexer::index_results = sub { };
     local *App::Prove::Elasticsearch::Blamer::Default = sub { return 'billy' };
     local *App::Prove::Elasticsearch::Versioner::Default = sub { return '666' };
     local *App::Prove::Elasticsearch::Platformer::Default = sub { return ['zippyOS'] };
@@ -60,7 +60,18 @@ my @expected_modules = (
 
     my $p;
     is(exception { $p = App::Prove::Elasticsearch::Parser->new( $opts ) }, undef, "make_parser executes all the way through");
-    is(exception {$p->run()}, undef, "Running parser works");
+    SKIP: {
+        skip("Couldn't build parser",9) unless $p;
+        is(exception {$p->run()}, undef, "Running parser works");
+        is($p->{upload}->{version},'666',"Version correctly recognized");
+        is($p->{upload}->{executor},'billy',"Executor correctly recognized");
+        is($p->{upload}->{path},"$FindBin::Bin/data","Path correctly recognized");
+        is($p->{upload}->{name},"pass.test","Test name correctly recognized");
+        cmp_bag($p->{upload}->{platform},['zippyOS'],"Platform(s) correctly recognized");
+        #status, steps, body
+        like($p->{upload}->{body},qr/yay/i,"Full test output captured");
+        is(scalar(@{$p->{upload}->{steps}}),1,"Test steps captured");
+        is($p->{upload}->{status},'OK',"Test status captured");
+        diag explain $p->{upload};
+    }
 }
-
-

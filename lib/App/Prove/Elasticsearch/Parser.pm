@@ -199,26 +199,26 @@ sub EOFCallback {
           . $self->tests_planned . ".";
     }
 
-    &{\&{$self->{indexer}."::index_results"}}( $self->{es_opts}, {
+    $self->{upload} = {
         body         => $self->{raw_output},
         elapsed      => $self->{elapsed},
         occurred     => $self->{starttime},
         status       => $self->{global_status},
         platform     => $self->{platform},
         executor     => $self->{executor},
-        sut_version  => $self->{sut_version},
+        version      => $self->{sut_version},
         name         => basename($self->{file}),
         path         => dirname($self->{file}),
         steps        => $self->{steps},
-    });
-
+    };
+    &{\&{$self->{indexer}."::index_results"}}( $self->{es_opts},$self->{upload});
     return $self->{global_status};
 }
 
 sub planCallback {
     my ($plan) = @_;
     my $self = $plan->{'parser'};
-    $self->{raw_output} .= $plan->as_string;
+    $self->{raw_output} .= $plan->as_string."\n";
 }
 
 sub _getFilenameFromTapLine {
@@ -252,6 +252,13 @@ sub _getFilenameFromTapLine {
         && !( $line =~ /^# / )
         && $line );
     return 0;
+}
+
+sub make_result {
+    my ( $self, @args ) = @_;
+    my $res = $self->SUPER::make_result(@args);
+    $res->{'parser'} = $self;
+    return $res;
 }
 
 1;
