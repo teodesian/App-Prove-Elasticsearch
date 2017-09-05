@@ -38,11 +38,11 @@ my @expected_modules = (
 
 {
     no warnings qw{redefine once};
-    local *App::Prove::Elasticsearch::Indexer::index_results = sub { };
-    local *App::Prove::Elasticsearch::Blamer::Default = sub { return 'billy' };
-    local *App::Prove::Elasticsearch::Versioner::Default = sub { return '666' };
-    local *App::Prove::Elasticsearch::Platformer::Default = sub { return ['zippyOS'] };
-    local *App::Prove::Elasticsearch::Parser::_require_deps = sub { return @expected_modules };
+    local *App::Prove::Elasticsearch::Indexer::index_results                 = sub { };
+    local *App::Prove::Elasticsearch::Blamer::Default::get_responsible_party = sub { return 'billy' };
+    local *App::Prove::Elasticsearch::Versioner::Default::get_version        = sub { return '666' };
+    local *App::Prove::Elasticsearch::Platformer::Default::get_platforms     = sub { return ['zippyOS'] };
+    local *App::Prove::Elasticsearch::Parser::_require_deps                  = sub { return @expected_modules };
     use warnings;
 
     my $opts = { 'server.host'       => 'zippy.test',
@@ -72,6 +72,5 @@ my @expected_modules = (
         like($p->{upload}->{body},qr/yay/i,"Full test output captured");
         is(scalar(@{$p->{upload}->{steps}}),1,"Test steps captured");
         is($p->{upload}->{status},'OK',"Test status captured");
-        diag explain $p->{upload};
     }
 }

@@ -179,7 +179,10 @@ sub EOFCallback {
     $self->{'elapsed'} = (time() - $self->{'starttime'} );
 
     my $todo_failed = $self->todo() - $self->todo_passed();
-    my $status = 'NOT OK' if $self->has_problems();
+
+    my $status = 'OK';
+
+    $status = 'NOT OK' if $self->has_problems();
 
     $status = 'TODO PASSED' if $self->todo_passed() && !$self->failed() && $self->is_good_plan();    #If no fails, but a TODO pass, mark as TODOP
 
@@ -203,7 +206,7 @@ sub EOFCallback {
         body         => $self->{raw_output},
         elapsed      => $self->{elapsed},
         occurred     => $self->{starttime},
-        status       => $self->{global_status},
+        status       => $status,
         platform     => $self->{platform},
         executor     => $self->{executor},
         version      => $self->{sut_version},
@@ -212,7 +215,7 @@ sub EOFCallback {
         steps        => $self->{steps},
     };
     &{\&{$self->{indexer}."::index_results"}}( $self->{es_opts},$self->{upload});
-    return $self->{global_status};
+    return $status;
 }
 
 sub planCallback {
