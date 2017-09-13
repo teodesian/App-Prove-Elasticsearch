@@ -12,9 +12,15 @@ use File::HomeDir();
 
 =head1 SYNOPSIS
 
-`prove -PElasticsearch='server.host=zippy.test,server.port=666,client.blamer=FingerPointer,client.indexer=EvilIndexer,client.versioner=Git`
+`prove -PElasticsearch='server.host=zippy.test,server.port=666,client.blamer=FingerPointer,client.indexer=EvilIndexer,client.versioner=Git,client.autodiscover=ByName`
 
 =head1 DESCRIPTION
+
+This testing plugin itself is highly pluggable to allow for a variety of indexing and searching conditions.
+
+=head2 INDEXER
+
+The default indexer is L<App::Prove::Elasticsearch::Indexer>
 
 Creates an index (if it does not exist)  called 'testsuite' in your specified Elasticsearch instance, which has the following parameters:
 
@@ -102,6 +108,22 @@ This module ships with:
 =item B<Env>: whatever is set in $ENV{TESTSUITE_EXECUTOR}.
 
 =back
+
+=head2 INDEXER
+
+=head2 AUTODISCOVER
+
+Passing the client.autodiscover option makes the Test Harness eject tests which have results indexed for the relevant configuration.
+The value is the class in the App::Prove::Elasticsearch::Searcher::* namespace you wish to use to autodiscover results.
+This module ships with:
+
+=over 4
+
+=item B<ByName>: Checks for results with the same name and path as the provided tests.
+
+=back
+
+By default, this option is NOT set, and tests will simply be re-run and indexed.
 
 =head2 CONFIGURATION
 

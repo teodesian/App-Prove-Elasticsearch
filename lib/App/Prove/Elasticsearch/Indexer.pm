@@ -18,6 +18,7 @@ use Search::Elasticsearch();
 =head2 index (STRING)
 
 The name of the elasticsearch index used.
+If you are subclassing this, be aware that the Searcher plugin will rely on this.
 
 =cut
 
