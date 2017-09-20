@@ -24,6 +24,10 @@ If you are subclassing this, be aware that the Searcher plugin will rely on this
 
 our $index = 'testsuite';
 
+sub index {
+    return $index;
+}
+
 =head1 SUBROUTINES
 
 =head2 check_index
@@ -131,6 +135,12 @@ sub check_index {
     }
     return 0;
 }
+
+=head2 index_results
+
+Index a test result (see L<App::Prove::Elasticsearch::Parser> for the input).
+
+=cut
 
 sub index_results {
     my ($conf,$result) = @_;
