@@ -93,7 +93,9 @@ sub filter {
 
         my $name_correct    = $match->{name}    eq $tname;
         my $version_correct = $match->{version} eq $tversion;
-        my $plats_correct   = scalar(@plats_match) == scalar(uniq((@plats_match,@$platz))); #XXX THIS IS WRONG, WHAT IF WE HAVE NO PLATZ
+        my $plats_size_ok   = scalar(@plats_match) == scalar(@$platz);
+        my $plats_are_same  = scalar(@plats_match) == scalar(uniq((@plats_match,@$platz))); #XXX THIS IS WRONG, WHAT IF WE HAVE NO PLATZ
+        my $plats_correct   = $plats_size_ok && $plats_are_same;
 
         if ($name_correct && $version_correct && $plats_correct) {
             print "# Not going to execute $test, it already has results in elasticsearch for this version and platform\n";

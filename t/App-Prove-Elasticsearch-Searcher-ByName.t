@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 3;
+use Test::More tests => 7;
 use Test::Fatal;
 use Test::Deep;
 
@@ -41,9 +41,24 @@ use App::Prove::Elasticsearch::Searcher::ByName;
     @res = $s->filter('t/data/pass.test');
     cmp_bag(\@res,['t/data/pass.test'],"good tests *dont* get filtered out");
 
-    #TODO test in situation where platform isn't right or empty
-    #TODO test in situation where version isn't right
+    no warnings qw{redefine once};
+    local *main::get_platforms = sub { return [] };
+    use warnings;
+
+    @res = $s->filter('/path/to/zippy.test');
+    cmp_bag(\@res,['/path/to/zippy.test'],"No platforms correctly recognized as being wrong");
+
+    no warnings qw{redefine once};
+    local *main::get_version = sub { return '666.421' };
+    use warnings;
+
+    @res = $s->filter('/path/to/zippy.test');
+    cmp_bag(\@res,['/path/to/zippy.test'],"Wrong version correctly recognized as being wrong");
 
 }
 
-#TODO test _require_deps
+{
+    my ($v,$p) = App::Prove::Elasticsearch::Searcher::ByName::_require_deps('Default','Default');
+    is($v,'App::Prove::Elasticsearch::Versioner::Default',"Require deps returns correct versioner");
+    is($p,'App::Prove::Elasticsearch::Platformer::Default',"Require deps returns correct platformer");
+}

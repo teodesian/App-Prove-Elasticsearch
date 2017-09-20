@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 7;
+use Test::More tests => 9;
 use Test::Fatal;
 
 use App::Prove::Elasticsearch::Indexer;
@@ -47,4 +47,18 @@ use App::Prove::Elasticsearch::Indexer;
 
 }
 
-#TODO test _get_last_index
+{
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [] } } };
+    use warnings;
+
+    my $e = bless({},'Search::Elasticsearch');
+    is(App::Prove::Elasticsearch::Indexer::_get_last_index($e), 0, "Can get last index when there are no hits.");
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [1], total => 3 } } };
+    use warnings;
+
+    is(App::Prove::Elasticsearch::Indexer::_get_last_index($e), 3, "Can get last index when there are 3 hits.");
+
+}
