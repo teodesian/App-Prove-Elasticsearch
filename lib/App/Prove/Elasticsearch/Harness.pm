@@ -62,8 +62,6 @@ sub make_parser {
     return ( $parser, $session );
 }
 
-=head1 OVERRIDDEN METHODS
-
 =head2 runtests
 
 If the autodiscover option is passed, this will neglect to run the tests which already have results indexed.
@@ -73,7 +71,7 @@ If the autodiscover option is passed, this will neglect to run the tests which a
 sub runtests {
     my ($self, @tests) = @_;
 
-    if ($self->{'client.autodiscover'}) {
+    if ($ENV{CLIENT_AUTODISCOVER}) {
         my $searcher = $self->_require_deps();
         @tests = $self->_filter_tests_with_results($searcher,@tests);
     }
@@ -83,18 +81,17 @@ sub runtests {
 
 sub _filter_tests_with_results {
     my ($self,$searcher,@tests) = @_;
-    my $indexer = $self->{'client.indexer'};
-    my $s = $searcher->new($self->{'server.host'},$self->{'server.port'},$indexer::index);
+    my $indexer = $ENV{CLIENT_INDEXER};
+    my $s = $searcher->new($ENV{SERVER_HOST},$ENV{SERVER_PORT},$indexer::index, $ENV{CLIENT_VERSIONER}, $ENV{CLIENT_PLATFORMER} );
     return $s->filter(@tests);
 }
 
 sub _require_deps {
-    my ($self) = @_;
 
-    eval "require $self->{'client.indexer'}";
+    eval "require $ENV{CLIENT_INDEXER}";
     die $@ if $@;
 
-    my $runner = "App::Prove::Elasticsearch::Searcher::$self->{'client.autodiscover'}";
+    my $runner = "App::Prove::Elasticsearch::Searcher::$ENV{CLIENT_AUTODISCOVER}";
 
     eval "require $runner";
     die $@ if $@;

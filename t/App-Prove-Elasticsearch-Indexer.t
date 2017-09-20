@@ -34,6 +34,7 @@ use App::Prove::Elasticsearch::Indexer;
     local *Search::Elasticsearch::new = sub { return bless({},'Search::Elasticsearch') };
     local *Search::Elasticsearch::index = sub { };
     local *Search::Elasticsearch::exists = sub { return 1};
+    local *App::Prove::Elasticsearch::Indexer::_get_last_index = sub { return 0 };
     use warnings;
 
     is(App::Prove::Elasticsearch::Indexer::index_results({ 'server.host' => 'zippy.test', 'server.port' => 666 }, { name => 'zippy.test' }), 1, "Indexer runs in the event index nonexistant.");
@@ -45,3 +46,5 @@ use App::Prove::Elasticsearch::Indexer;
     like( exception { App::Prove::Elasticsearch::Indexer::index_results({ 'server.host' => 'zippy.test', 'server.port' => 666 }, { name => 'zippy.test' }) }, qr/failed to index/i, "Indexer runs in the event index nonexistant.");
 
 }
+
+#TODO test _get_last_index

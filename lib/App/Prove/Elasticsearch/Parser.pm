@@ -11,6 +11,7 @@ use parent qw/TAP::Parser/;
 
 use Clone qw{clone};
 use File::Basename qw{basename dirname};
+use POSIX qw{strftime};
 
 =head1 SYNOPSIS
 
@@ -37,12 +38,13 @@ sub new {
     };
 
     my $esopts = {
-        'server.host'       => delete $opts->{'server.host'},
-        'server.port'       => delete $opts->{'server.port'},
-        'client.indexer'    => delete $opts->{'client.indexer'},
-        'client.versioner'  => delete $opts->{'client.versioner'} // 'Default',
-        'client.blamer'     => delete $opts->{'client.blamer'} // 'Default',
-        'client.platformer' => delete $opts->{'client.platformer'} // 'Default',
+        'server.host'         => delete $opts->{'server.host'},
+        'server.port'         => delete $opts->{'server.port'},
+        'client.indexer'      => delete $opts->{'client.indexer'},
+        'client.versioner'    => delete $opts->{'client.versioner'} // 'Default',
+        'client.blamer'       => delete $opts->{'client.blamer'} // 'Default',
+        'client.platformer'   => delete $opts->{'client.platformer'} // 'Default',
+        'client.autodiscover' => delete $opts->{'client.autodiscover'},
     };
 
     my $self = $class->SUPER::new($opts);
@@ -55,8 +57,8 @@ sub new {
 
     #XXX maybe this could be done in the plugin and passed down? probably more efficient
     my ($versioner,$blamer,$indexer,$platformer) = $self->_require_deps($esopts);
-    $self->{executor} = &{\&{$blamer."::get_responsible_party"}}();
-    $self->{sut_version}  = &{\&{$versioner."::get_version"}}();
+    $self->{executor} = &{\&{$blamer."::get_responsible_party"}}($self->{file});
+    $self->{sut_version}  = &{\&{$versioner."::get_version"}}($self->{file});
     $self->{platform} = &{\&{$platformer."::get_platforms"}}();
     $self->{indexer}  = $indexer;
 
@@ -205,7 +207,7 @@ sub EOFCallback {
     $self->{upload} = {
         body         => $self->{raw_output},
         elapsed      => $self->{elapsed},
-        occurred     => $self->{starttime},
+        occurred     => strftime("%Y-%m-%d %H:%M:%S",localtime($self->{starttime})),
         status       => $status,
         platform     => $self->{platform},
         executor     => $self->{executor},

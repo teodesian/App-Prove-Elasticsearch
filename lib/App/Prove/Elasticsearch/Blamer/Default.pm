@@ -8,11 +8,12 @@ use warnings;
 use utf8;
 
 use File::Basename qw{dirname};
+use Cwd qw{abs_path};
 
 sub get_responsible_party {
-    my $loc = dirname($0);
+    my $loc = abs_path(dirname(shift)."/../CHANGES");
     my $ret;
-    open(my $fh, '<', "$loc/../CHANGES") or die "Could not open CHANGES";
+    open(my $fh, '<', $loc) or die "Could not open $loc";
     while (<$fh>) {
         ($ret) = $_ =~ m/\s*\w*\s*(\w*)$/;
         last if $ret;
