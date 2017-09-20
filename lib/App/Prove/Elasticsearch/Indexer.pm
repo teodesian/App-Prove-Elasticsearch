@@ -43,10 +43,13 @@ sub check_index {
     my $e = Search::Elasticsearch->new(
         nodes           => $serveraddress,
     );
-    my $indexer = $conf->{'client.indexer'} // 'App::Prove::Elasticsearch::Indexer';
-    if (!$e->indices->exists( index => $indexer::index )) {
+
+    #XXX for debugging
+    #$e->indices->delete( index => $index );
+
+    if (!$e->indices->exists( index => $index )) {
         $e->indices->create(
-            index => $indexer::index,
+            index => $index,
             body  => {
                 index => {
                     number_of_shards   => "3",
@@ -80,6 +83,7 @@ sub check_index {
                 mappings => {
                     testsuite => {
                         properties => {
+                            id      => { type => "integer" },
                             elapsed => { type => "integer" },
                             occurred      => {
                                 type   => "date",
@@ -87,7 +91,7 @@ sub check_index {
                             },
                             executor           => { type => "text" },
                             status             => { type => "text" },
-                            VERSION            => { type => "text" },
+                            version            => { type => "text" },
                             platform           => { type => "text" },
                             path               => { type => "text" },
                             body               => {
@@ -137,19 +141,47 @@ sub index_results {
     my $e = Search::Elasticsearch->new(
         nodes           => $serveraddress,
     );
-    my $indexer = $conf->{'client.indexer'} // 'App::Prove::Elasticsearch::Indexer';
+
+    my $idx = _get_last_index($e);
+    $idx++;
+
     $e->index(
         index => $index,
+        id    => $idx,
         type  => 'result',
         body  => $result,
     );
 
-    my $doc_exists = $e->exists(index => $index, type => 'result', name => $result->{'name'}, path => $result->{path} );
-    if (!int($doc_exists)) {
-        die "Failed to Index $result->{'name'}\n";
+    my $doc_exists = $e->exists(index => $index, type => 'result', id => $idx );
+    if (!defined($doc_exists) || !int($doc_exists)) {
+        die "Failed to Index $result->{'name'}, could find no record with ID $idx\n";
     } else {
-        print "Successfully Indexed Ticket ID: $result->{'name'}\n";
+        print "Successfully Indexed test: $result->{'name'} with result ID $idx\n";
     }
+}
+
+sub _get_last_index {
+    my ($e) = @_;
+
+    my $res = $e->search(
+        index => $index,
+        body  => {
+            query => {
+                match_all => { }
+            },
+            sort => {
+                id => {
+                  order => "desc"
+                }
+            },
+            size => 1
+        }
+    );
+
+    my $hits = $res->{hits}->{hits};
+    return 0 unless scalar(@$hits);
+
+    return $res->{hits}->{total};
 }
 
 1;

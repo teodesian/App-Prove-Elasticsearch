@@ -34,9 +34,11 @@ use App::Prove::Elasticsearch::Harness;
     local *TAP::Harness::runtests = sub { return 1 };
     use warnings;
 
+    local $ENV{CLIENT_AUTODISCOVER} = 0;
     my $h = bless({},'App::Prove::Elasticsearch::Harness');
     is( $h->runtests( 'zippy.test' ), 1, "can runtests");
-    $h->{'client.autodiscover'} = 1;
+
+    local $ENV{CLIENT_AUTODISCOVER} = 1;
     is( $h->runtests( 'zippy.test' ), 1, "can runtests in autodiscover mode");
 }
 
@@ -59,9 +61,7 @@ use App::Prove::Elasticsearch::Harness;
 }
 
 {
-    my $obj = {
-        'client.indexer'      => 'App::Prove::Elasticsearch::Indexer',
-        'client.autodiscover' => 'ByName',
-    };
-    is(exception { App::Prove::Elasticsearch::Harness::_require_deps($obj) }, undef, "deps can be required");
+    local $ENV{CLIENT_INDEXER}      = 'App::Prove::Elasticsearch::Indexer';
+    local $ENV{CLIENT_AUTODISCOVER} = 'ByName';
+    is(exception { App::Prove::Elasticsearch::Harness::_require_deps() }, undef, "deps can be required");
 }
