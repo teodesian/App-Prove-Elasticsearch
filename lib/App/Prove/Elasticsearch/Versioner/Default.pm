@@ -10,6 +10,14 @@ use utf8;
 use File::Basename qw{dirname};
 use Cwd qw{abs_path};
 
+=head1 SUBROUTINES
+
+=head2 get_version
+
+Reads CHANGES and returns the version therein.
+
+=cut
+
 sub get_version {
     my $loc = abs_path(dirname(shift)."/../CHANGES");
     my $ret;

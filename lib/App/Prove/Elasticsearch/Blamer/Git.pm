@@ -9,6 +9,14 @@ use utf8;
 
 use Git;
 
+=head1 SUBROUTINES
+
+=head2 get_responsible_party
+
+Get the responsible party from the author.email in git-config
+
+=cut
+
 sub get_responsible_party {
     my $email = Git::command_oneline('config', 'user.email');
     chomp $email;
