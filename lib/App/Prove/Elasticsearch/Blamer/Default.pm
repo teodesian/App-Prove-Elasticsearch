@@ -10,6 +10,14 @@ use utf8;
 use File::Basename qw{dirname};
 use Cwd qw{abs_path};
 
+=head1 SUBROUTINES
+
+=head2 get_responsible_party
+
+Get the responsible party from CHANGES
+
+=cut
+
 sub get_responsible_party {
     my $loc = abs_path(dirname(shift)."/../CHANGES");
     my $ret;

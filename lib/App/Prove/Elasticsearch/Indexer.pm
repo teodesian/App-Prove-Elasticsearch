@@ -132,6 +132,12 @@ sub check_index {
     return 0;
 }
 
+=head2 index_results
+
+Index a test result (see L<App::Prove::Elasticsearch::Parser> for the input).
+
+=cut
+
 sub index_results {
     my ($conf,$result) = @_;
 

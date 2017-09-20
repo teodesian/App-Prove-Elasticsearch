@@ -9,6 +9,14 @@ use utf8;
 
 use Sys::Info::OS;
 
+=head1 SUBROUTINES
+
+=head2 get_responsible_party
+
+Get the responsible party as your system user @ hostname.
+
+=cut
+
 sub get_responsible_party {
     my $info = Sys::Info::OS->new();
     return $info->login_name().'@'.$info->host_name();

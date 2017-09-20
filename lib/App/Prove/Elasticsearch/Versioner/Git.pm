@@ -9,6 +9,14 @@ use utf8;
 
 use Git;
 
+=head1 SUBROUTINES
+
+=head2 get_version
+
+Reads your git log and returns the current SHA as the version.
+
+=cut
+
 sub get_version {
     my $out = Git::command_oneline('log', '--format=format:%H');
     my @shas = split(/\n/,$out);
