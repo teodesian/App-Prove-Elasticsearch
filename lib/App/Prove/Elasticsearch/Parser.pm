@@ -21,6 +21,8 @@ use POSIX qw{strftime};
 
 =head2 new
 
+Creates a TAP::Parser that will upload test results to your repository using the provided indexer.
+
 =cut
 
 sub new {
@@ -84,6 +86,44 @@ sub _require_deps {
     die $@ if $@;
     return ($versioner,$blamer,$indexer,$platformer);
 }
+
+=head1 OVERRIDDEN CALLBACKS
+
+=head2 unknownCallback
+
+=head2 commentCallback
+
+=head2 planCallback
+
+=head2 bailoutCallback
+
+These do little more than record the information printed during prove for upload to the result index.
+
+=head2 testCallback
+
+Captures step information and runtime, along with the raw text of the assertion.
+
+=head2 EOFCallback
+
+Actually does the uploading of the result to the index.
+
+Sets test global status as the 'most anomalous' result encountered in the test in the following order (most to least):
+
+=over 4
+
+=item Bailout
+
+=item Skipped (when skip_all happens)
+
+=item Failed
+
+=item Todo Passed
+
+=item Todo Failed
+
+=back
+
+=cut
 
 # Look for file boundaries, etc.
 sub unknownCallback {
@@ -191,6 +231,8 @@ sub EOFCallback {
     $status = 'TODO FAILED' if $todo_failed && !$self->failed() && $self->is_good_plan();    #If no fails, but a TODO fail, prefer TODOF to TODOP
 
     $status = "SKIPPED" if $self->skip_all();    #Skip all, whee
+
+    $status = "BAIL OUT" if $self->{is_bailout};
 
     #Global status override
     $status = $self->{'global_status'} if $self->{'global_status'};

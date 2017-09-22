@@ -1,0 +1,14 @@
+cover_db/*
+MANIFEST.SKIP
+bilb/*
+pm_to_blib
+dist/*
+dist.ini
+weaver.ini
+README.md
+.git/*
+.gitignore
+tidyall.ini
+.build/*
+App-Prove-Elasticsearch-*/
+cover/*

@@ -1,1 +1,1 @@
-exclude = RequireUseStrict|RequireUseWarnings
+exclude = RequireUseStrict|RequireUseWarnings|ProhibitStringyEval

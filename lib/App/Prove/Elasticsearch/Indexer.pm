@@ -24,6 +24,10 @@ If you are subclassing this, be aware that the Searcher plugin will rely on this
 
 our $index = 'testsuite';
 
+sub index {
+    return $index;
+}
+
 =head1 SUBROUTINES
 
 =head2 check_index

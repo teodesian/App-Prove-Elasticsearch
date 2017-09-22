@@ -8,6 +8,7 @@ use Capture::Tiny qw{capture_merged};
 
 use FindBin;
 use App::Prove::Elasticsearch::Harness;
+use App::Prove::Elasticsearch::Indexer;
 
 {
     my $p = { verbosity => 1 };
@@ -54,7 +55,7 @@ use App::Prove::Elasticsearch::Harness;
         shift;
         return @_;
     }
-    my $index = 'zippy';
+    local $ENV{CLIENT_INDEXER} = 'App::Prove::Elasticsearch::Indexer';
 
     my ($t) = App::Prove::Elasticsearch::Harness::_filter_tests_with_results($obj,'main','zippy.test');
     is($t,'zippy.test',"_filter_tests_with_results returns results");
