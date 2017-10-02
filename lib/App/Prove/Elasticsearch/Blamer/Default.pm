@@ -1,4 +1,4 @@
-# ABSTRACT: Determine the responsible for tests via CHANGES file for upload to elasticsearch
+# ABSTRACT: Determine the responsible for tests via Changes file for upload to elasticsearch
 # PODNAME: App::Prove::Elasticsearch::Blamer::Default
 
 package App::Prove::Elasticsearch::Blamer::Default;
@@ -14,12 +14,12 @@ use Cwd qw{abs_path};
 
 =head2 get_responsible_party
 
-Get the responsible party from CHANGES
+Get the responsible party from Changes
 
 =cut
 
 sub get_responsible_party {
-    my $loc = abs_path(dirname(shift)."/../CHANGES");
+    my $loc = abs_path(dirname(shift)."/../Changes");
     my $ret;
     open(my $fh, '<', $loc) or die "Could not open $loc";
     while (<$fh>) {
@@ -27,7 +27,7 @@ sub get_responsible_party {
         last if $ret;
     }
     close $fh;
-    die 'Could not determine the latest version from CHANGES!' unless $ret;
+    die 'Could not determine the latest version from Changes!' unless $ret;
     return $ret;
 }
 
