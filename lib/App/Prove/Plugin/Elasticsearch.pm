@@ -64,7 +64,7 @@ This module ships with various versioners:
 
 =over 4
 
-=item B<Default>: used if no versioner is passed, the latest version in CHANGES is used.  Basically the CPAN module workflow.
+=item B<Default>: used if no versioner is passed, the latest version in Changes is used.  Basically the CPAN module workflow.
 
 =item B<Git>: use the latest SHA for the file.
 
@@ -99,7 +99,7 @@ This module ships with:
 
 =over 4
 
-=item B<Default>: The latest author listed in CHANGES.
+=item B<Default>: The latest author listed in Changes.
 
 =item B<System>: user executing @ hostname
 
