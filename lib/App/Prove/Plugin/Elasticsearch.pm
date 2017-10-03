@@ -132,6 +132,8 @@ Set the host and port values in the [Server] section.
 Set the blamer, indexer and versioner values in the [Client] section.
 If your Indexer & Versioner subclasses require additional configuration you may put them in arbitrary sections, as the entire configuration is passed to both parent classes.
 
+If no configuration is passed either by file or argument, the plugin chooses to do nothing, and notifies you of this fact.
+
 =head1 CONSTRUCTOR
 
 =head2 load
@@ -149,6 +151,11 @@ sub load {
 
     my $conf = _process_configuration($args);
 
+    if (scalar(grep { my $subj = $_; grep { $subj eq $_ } qw{server.host server.port} } keys(%$conf)) != 2 ) {
+        print "# Insufficient information provided to upload test results to elasticsearch.  Skipping...\n";
+        return $class;
+    }
+
     $app->harness('App::Prove::Elasticsearch::Harness');
     $app->merge(1);
 
@@ -164,7 +171,9 @@ sub _process_configuration {
 
     my $homedir = File::HomeDir::my_home() || '.';
     if (-e $homedir) {
-        Config::Simple->import_from("$homedir/elastest.conf", $conf) or die Config::Simple->error();
+        unless( Config::Simple->import_from("$homedir/elastest.conf", $conf) ) {
+            warn Config::Simple->error() if -e "$homedir/elastest.conf";
+        }
     }
 
     my @kvp = ();
