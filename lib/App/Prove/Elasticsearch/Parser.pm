@@ -91,6 +91,8 @@ sub _require_deps {
 
 =head2 unknownCallback
 
+Checks for status overrides (% mark_status=DISCARD) and records unknown lines for later upload.
+
 =head2 commentCallback
 
 =head2 planCallback
@@ -133,7 +135,7 @@ sub unknownCallback {
     $self->{'raw_output'} .= "$line\n";
 
     #Unofficial "Extensions" to TAP
-    my ($status_override) = $line =~ m/^% mark_status=([a-z|_]*)/;
+    my ($status_override) = $line =~ m/^% mark_status=([A-Z|_]*)/;
     $self->{global_status} = $status_override if $status_override;
 
     #Allow the parser to operate on TAP files
@@ -236,6 +238,7 @@ sub EOFCallback {
 
     #Global status override
     $status = $self->{'global_status'} if $self->{'global_status'};
+    return if $status eq 'DISCARD';
 
     #Notify user about bad plan a bit better, supposing we haven't bailed
     if ( !$self->is_good_plan() && !$self->{'is_bailout'} ) {

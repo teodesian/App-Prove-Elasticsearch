@@ -37,3 +37,10 @@ App::Prove::Elasticsearch::Blamer:: - Multiple classes to determine who or what 
 * Env     - Specify a vversion string as $ENV{TESTSUITE_AUTHOR}
 * As usual, subclass away and load custom classes via `prove -Pblamer=MyClassName
 
+You can override test global statuses in the event of environmental failures, etc by printing a status like so:
+
+% mark_status=SKIP
+
+Inside the test.
+
+If you use the status DISCARD, the test result will simply be omitted and not uploaded to the index.

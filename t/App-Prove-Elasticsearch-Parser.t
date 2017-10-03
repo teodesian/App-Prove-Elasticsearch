@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 11;
+use Test::More tests => 15;
 use Test::Fatal;
 use Test::Deep;
 use Capture::Tiny qw{capture_merged};
@@ -72,5 +72,15 @@ my @expected_modules = (
         like($p->{upload}->{body},qr/yay/i,"Full test output captured");
         is(scalar(@{$p->{upload}->{steps}}),1,"Test steps captured");
         is($p->{upload}->{status},'OK',"Test status captured");
+    }
+
+    #Verify status overrides
+    $opts->{source} = "$FindBin::Bin/data/discard.test";
+    is(exception { $p = App::Prove::Elasticsearch::Parser->new( $opts ) }, undef, "make_parser executes all the way through");
+    SKIP: {
+        skip("Couldn't build parser",3) unless $p;
+        is(exception {$p->run()}, undef, "Running parser works");
+        is($p->{global_status},'DISCARD',"Global status override correctly acquired");
+        is($p->{upload},undef,"Made no attempt to upload when status DISCARD was indicated");
     }
 }
