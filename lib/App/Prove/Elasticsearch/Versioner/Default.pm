@@ -18,8 +18,12 @@ Reads Changes and returns the version therein.
 
 =cut
 
+our $version = {};
+
 sub get_version {
     my $loc = abs_path(dirname(shift)."/../Changes");
+
+    return $version->{$loc} if $version->{$loc};
     my $ret;
     open(my $fh, '<', $loc) or die "Could not open Changes";
     while (<$fh>) {
@@ -28,6 +32,7 @@ sub get_version {
     }
     close $fh;
     die 'Could not determine the latest version from Changes!' unless $ret;
+    $version->{$loc} = $ret;
     return $ret;
 }
 

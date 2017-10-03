@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 3;
+use Test::More tests => 4;
 use Test::Fatal;
 use App::Prove::Elasticsearch::Blamer::Default;
 use Capture::Tiny qw{capture_merged};
@@ -9,6 +9,7 @@ use Capture::Tiny qw{capture_merged};
 {
     my $f = 't/data/bogus/lessbogus/subdir/zippy.t';
     is(App::Prove::Elasticsearch::Blamer::Default::get_responsible_party($f),'TEODESIAN',"get_responsible_party returns correct author in Changes");
+    is(App::Prove::Elasticsearch::Blamer::Default::get_responsible_party($f),'TEODESIAN',"get_responsible_party returns correct author when searching cache");
 }
 
 {

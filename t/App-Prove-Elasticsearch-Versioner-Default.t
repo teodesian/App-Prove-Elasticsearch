@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 3;
+use Test::More tests => 4;
 use Test::Fatal;
 use Capture::Tiny qw{capture_merged};
 use App::Prove::Elasticsearch::Versioner::Default;
@@ -9,6 +9,7 @@ use App::Prove::Elasticsearch::Versioner::Default;
 {
     my $t = 't/data/bogus/zippy.t';
     is(App::Prove::Elasticsearch::Versioner::Default::get_version($t),'0.111.1112.2.2.3',"get_version returns correct version in Changes");
+    is(App::Prove::Elasticsearch::Versioner::Default::get_version($t),'0.111.1112.2.2.3',"get_version returns correct version when searching cache");
 }
 
 {
