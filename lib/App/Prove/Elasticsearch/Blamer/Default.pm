@@ -18,8 +18,12 @@ Get the responsible party from Changes
 
 =cut
 
+our $party = {};
+
 sub get_responsible_party {
     my $loc = abs_path(dirname(shift)."/../Changes");
+
+    return $party->{$loc} if $party->{$loc};
     my $ret;
     open(my $fh, '<', $loc) or die "Could not open $loc";
     while (<$fh>) {
@@ -28,6 +32,7 @@ sub get_responsible_party {
     }
     close $fh;
     die 'Could not determine the latest version from Changes!' unless $ret;
+    $party->{$loc} = $ret;
     return $ret;
 }
 
