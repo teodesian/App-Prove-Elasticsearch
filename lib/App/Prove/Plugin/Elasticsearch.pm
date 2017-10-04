@@ -56,6 +56,16 @@ The name searched for must be a child of the App::Prove::Elasticsearch::Indexer,
 You may have noticed that this pluggable design does not necessarily mean you need to use elasticsearch as your indexer;
 so long as the information above is all you need for your test management system, there's no reason you couldn't make a custom indexer for it.
 
+There are also some shipped indexer extensions:
+
+=over 4
+
+=item B<DzilDist>: Names the index based on what your distribution is named in dist.ini
+
+=item B<MMDist>: Names the index based on what your distribution is named in Makefile.PL
+
+=back
+
 =head2 VERSIONER
 
 The version getter is necessarily complicated, as all perl modules do not necessarily provide a reliable method of acquiring this.
