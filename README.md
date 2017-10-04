@@ -14,6 +14,10 @@ App::Prove::Elasticsearch::Indexer -
 * Subclass to use other storage engines that aren't even elasticsearch
 * And, if the subclasses is named like App::Prove::Elasticsearch::Indexer::MyClassName, you can load them with `prove -Pindexer=MyClassName`
 
+We also provide various alternative indexers:
+* DzilDist: names your ES index after what your distribution is named in dist.ini
+* MMDist: does the same, but picks the dist name out of Makefile.PL
+
 App::Prove::Elasticsearch::Searcher::ByName - filters out tests with results already indexed on our SUT's platform & version.
 * Subclass to filter out cases before they are sent to be run based on other criteria
 * As with above, you can load App::Prove::Elasticsearch::Searcher::MyClassName with `prove -Psearcher=MyClassName`
