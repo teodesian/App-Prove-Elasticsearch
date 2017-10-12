@@ -53,13 +53,15 @@ Designed to work with L<App::Prove::Elasticsearch::Indexer>.
 sub filter {
     my ($self,@tests) = @_;
 
+    return @tests unless $self->_has_results();
+
     my $platz = &{\&{$self->{platformer}."::get_platforms"}}();
 
     my @tests_filtered;
     foreach my $test (@tests) {
         $test = Cwd::abs_path($test);
         my $tname = File::Basename::basename($test);
-        my $tversion = &{\&{$self->{versioner}."::get_version"}}($test); 
+        my $tversion = &{\&{$self->{versioner}."::get_version"}}($test);
         my %q = (
             index => $self->{index},
             body  => {
@@ -105,6 +107,30 @@ sub filter {
         push(@tests_filtered,$test);
     }
     return @tests_filtered;
+}
+
+sub _has_results {
+    my ($self) = @_;
+
+    my $res = $self->{handle}->search(
+        index => $self->{index},
+        body  => {
+            query => {
+                match_all => { }
+            },
+            sort => {
+                id => {
+                  order => "desc"
+                }
+            },
+            size => 1
+        }
+    );
+
+    my $hits = $res->{hits}->{hits};
+    return 0 unless scalar(@$hits);
+
+    return $res->{hits}->{total};
 }
 
 sub _require_deps {
