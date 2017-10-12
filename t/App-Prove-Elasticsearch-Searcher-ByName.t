@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 7;
+use Test::More tests => 9;
 use Test::Fatal;
 use Test::Deep;
 
@@ -32,6 +32,7 @@ use App::Prove::Elasticsearch::Searcher::ByName;
     local *main::get_platforms = sub {
         return ['a'];
     };
+    local *App::Prove::Elasticsearch::Searcher::ByName::_has_results = sub { return 1 };
     use warnings;
 
     my $s = bless({'platformer' => 'main', 'versioner' => 'main', 'handle' => bless({ },'Search::Elasticsearch') },'App::Prove::Elasticsearch::Searcher::ByName');
@@ -61,4 +62,21 @@ use App::Prove::Elasticsearch::Searcher::ByName;
     my ($v,$p) = App::Prove::Elasticsearch::Searcher::ByName::_require_deps('Default','Default');
     is($v,'App::Prove::Elasticsearch::Versioner::Default',"Require deps returns correct versioner");
     is($p,'App::Prove::Elasticsearch::Platformer::Default',"Require deps returns correct platformer");
+}
+
+{
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [] } } };
+    use warnings;
+
+    my $e = bless({},'Search::Elasticsearch');
+    my $obj = { handle => $e, index => 'zippy' };
+    is(App::Prove::Elasticsearch::Searcher::ByName::_has_results($obj), 0, "No hits returns false.");
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [1], total => 3 } } };
+    use warnings;
+
+    is(App::Prove::Elasticsearch::Searcher::ByName::_has_results($obj), 3, "Get a true value when there are 3 hits.");
+
 }
