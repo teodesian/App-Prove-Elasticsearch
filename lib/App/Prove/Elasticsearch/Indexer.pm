@@ -8,6 +8,7 @@ use warnings;
 use utf8;
 
 use Search::Elasticsearch();
+use List::Util 1.33;
 
 =head1 SYNOPSIS
 
@@ -98,6 +99,7 @@ sub check_index {
                             version            => { type => "text" },
                             platform           => { type => "text" },
                             path               => { type => "text" },
+                            defect             => { type => "text" },
                             body               => {
                                 type        => "text",
                                 analyzer    => "default",
@@ -192,6 +194,101 @@ sub _get_last_index {
     return 0 unless scalar(@$hits);
 
     return $res->{hits}->{total};
+}
+
+=head2 associate_case_with_result(%config)
+
+Associate an indexed result with a tracked defect.
+
+Requires configuration to be inside of ENV vars already.
+
+Arguments Hash:
+
+=over 4
+
+=item B<case STRING>     - case to associate defect to
+
+=item B<defects ARRAY>   - defects to associate with case
+
+=item B<platforms ARRAY> - filter out any results not having these platforms
+
+=item B<verisons ARRAY>  - filter out any results not having these versions
+
+=back
+
+=cut
+
+sub associate_case_with_result {
+    my %opts = @_;
+
+    my $port = $ENV{'SERVER_PORT'} ? ':'.$ENV{'SERVER_PORT'} : '';
+    my $serveraddress = "$ENV{'SERVER_HOST'}$port";
+    die("server and port must be specified") unless $serveraddress;
+
+    my $e = Search::Elasticsearch->new(
+        nodes           => $serveraddress,
+    );
+
+    my %q = (
+        index => $index,
+        body  => {
+            query => {
+                bool => {
+                    must => [
+                        {match => {
+                            name => $opts{case},
+                        }},
+                    ],
+                },
+            },
+        },
+    );
+
+    #It's normal to have multiple platforms in a document.
+    foreach my $plat (@{$opts{platforms}}) {
+        push(@{$q{body}{query}{bool}{must}}, { match => { platform => $plat } } );
+    }
+
+    #It's NOT normal to have multiple versions in a document.
+    foreach my $version (@{$opts{versions}}) {
+        push(@{$q{body}{query}{bool}{should}}, { match => { version => $version } } );
+    }
+
+    my $res = $e->search(%q);
+
+    my $hits = $res->{hits}->{hits};
+    return 0 unless scalar(@$hits);
+
+    #Now, update w/ the defect.
+    my $failures = 0;
+    foreach my $hit (@$hits) {
+        next unless List::Util::any { $hit->{_source}->{version} eq $_ } @{$opts{versions}};
+        next unless List::Util::all { my $p = $_; grep { $_ eq $p} @{$hit->{_source}->{platform}} } @{$opts{platforms}};
+        next unless $hit->{_source}->{name} eq $opts{case};
+
+        #Merge the existing defects with the ones we are adding in
+        $hit->{case} //= [];
+        my @df_merged = List::Util::uniq((@{$hit->{case}},@{$opts{defects}}));
+
+        my $res = $e->update(
+            index => $index,
+            id => $hit->{_id},
+            type => 'result',
+            body => {
+                doc => {
+                    case => \@df_merged,
+                },
+            }
+        );
+
+        print "Associated cases to document $hit->{_id}\n" if $res->{result} eq 'updated';
+        if (!grep { $res->{result} eq $_ } qw{updated noop}) {
+            print "Something went wrong associating cases to document $hit->{_id}!\n$res->{result}\n";
+            $failures++;
+        }
+    }
+
+    return $failures;
 }
 
 1;
