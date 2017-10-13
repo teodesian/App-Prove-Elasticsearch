@@ -7,8 +7,7 @@ use strict;
 use warnings;
 use utf8;
 
-use Config::Simple();
-use File::HomeDir();
+use App::Prove::Elasticsearch::Utils();
 
 =head1 SYNOPSIS
 
@@ -159,7 +158,7 @@ sub load {
     my $app  = $prove->{app_prove};
     my $args = $prove->{args};
 
-    my $conf = _process_configuration($args);
+    my $conf = App::Prove::Elasticsearch::Utils::process_configuration($args);
 
     if (scalar(grep { my $subj = $_; grep { $subj eq $_ } qw{server.host server.port} } keys(%$conf)) != 2 ) {
         print "# Insufficient information provided to upload test results to elasticsearch.  Skipping...\n";
@@ -169,58 +168,10 @@ sub load {
     $app->harness('App::Prove::Elasticsearch::Harness');
     $app->merge(1);
 
-    my $indexer = _require_deps($conf);
+    my $indexer = App::Prove::Elasticsearch::Utils::require_indexer($conf);
     &{ \&{$indexer . "::check_index"} }($conf);
 
     return $class;
-}
-
-sub _process_configuration {
-    my $args = shift;
-    my $conf = {};
-
-    my $homedir = File::HomeDir::my_home() || '.';
-    if (-e $homedir) {
-        unless( Config::Simple->import_from("$homedir/elastest.conf", $conf) ) {
-            warn Config::Simple->error() if -e "$homedir/elastest.conf";
-        }
-    }
-
-    my @kvp = ();
-    my ( $key, $value );
-    foreach my $arg (@$args) {
-        @kvp = split( /=/, $arg );
-        if ( scalar(@kvp) < 2 ) {
-            print
-              "Unrecognized Argument '$arg' to App::Prove::Plugin::Elasticsearch, ignoring\n";
-            next;
-        }
-        $key            = shift @kvp;
-        $value          = join( '', @kvp );
-        $conf->{$key} = $value;
-    }
-
-    #Set ENV for use by harness
-    foreach my $key (keys(%$conf)) {
-        my $km = uc($key);
-        $km =~ s/\./_/g;
-        $ENV{$km} = $conf->{$key};
-    }
-
-    return $conf;
-}
-
-sub _require_deps {
-    my $conf = shift;
-    my $index_suffix = $conf->{'client.indexer'} ? "::".$conf->{'client.indexer'} : '';
-    my $indexer = "App::Prove::Elasticsearch::Indexer$index_suffix";
-
-    eval "require $indexer";
-    die $@ if $@;
-
-    #Set ENV for use by harness
-    $ENV{CLIENT_INDEXER} = $indexer;
-    return $indexer;
 }
 
 1;
