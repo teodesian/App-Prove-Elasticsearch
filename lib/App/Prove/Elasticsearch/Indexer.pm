@@ -212,7 +212,7 @@ Arguments Hash:
 
 =item B<platforms ARRAY> - filter out any results not having these platforms
 
-=item B<verisons ARRAY>  - filter out any results not having these versions
+=item B<versions ARRAY>  - filter out any results not having these versions
 
 =back
 
