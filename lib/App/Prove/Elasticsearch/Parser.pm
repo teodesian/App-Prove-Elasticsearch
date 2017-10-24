@@ -250,17 +250,19 @@ sub EOFCallback {
     }
 
     $self->{upload} = {
-        body         => $self->{raw_output},
-        elapsed      => $self->{elapsed},
-        occurred     => strftime("%Y-%m-%d %H:%M:%S",localtime($self->{starttime}->[0])),
-        status       => $status,
-        platform     => $self->{platform},
-        executor     => $self->{executor},
-        version      => $self->{sut_version},
-        name         => basename($self->{file}),
-        path         => dirname($self->{file}),
-        steps        => $self->{steps},
+        body          => $self->{raw_output},
+        elapsed       => $self->{elapsed},
+        occurred      => strftime("%Y-%m-%d %H:%M:%S",localtime($self->{starttime}->[0])),
+        status        => $status,
+        platform      => $self->{platform},
+        executor      => $self->{executor},
+        version       => $self->{sut_version},
+        name          => basename($self->{file}),
+        path          => dirname($self->{file}),
+        steps         => $self->{steps},
+        steps_planned => $self->tests_planned
     };
+
     &{\&{$self->{indexer}."::index_results"}}( $self->{es_opts},$self->{upload});
     return $status;
 }
