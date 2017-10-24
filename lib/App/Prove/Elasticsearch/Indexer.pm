@@ -100,6 +100,7 @@ sub check_index {
                             platform           => { type => "text" },
                             path               => { type => "text" },
                             defect             => { type => "text" },
+                            steps_planned      => { type => "integer" },
                             body               => {
                                 type        => "text",
                                 analyzer    => "default",
