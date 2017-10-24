@@ -65,7 +65,7 @@ sub new {
     $self->{indexer}  = $indexer;
 
     $self->{steps}     = [];
-    $self->{starttime} = time();
+    $self->{starttime} = [Time::HiRes::gettimeofday()];
     $self->{es_opts}   = $esopts;
     return $self;
 }
@@ -194,10 +194,10 @@ sub testCallback {
     $test_name =~ s/\s+$//g;
 
      #Test done.  Record elapsed time.
-    my $tm = time();
-    $self->{lasttime} //= $tm;
+    my $tm = [Time::HiRes::gettimeofday()];
+    $self->{lasttime} //= $self->{starttime};
     push(@{$self->{steps}},{
-        elapsed => ($tm - $self->{'lasttime'}),
+        elapsed => Time::HiRes::tv_interval($self->{'lasttime'},$tm),
         step    => $test->number, #XXX TODO maybe this isn't right
         name    => $test_name,
         status  => $status_name,
@@ -220,7 +220,7 @@ sub EOFCallback {
     my ($self) = @_;
 
     #Test done.  Record elapsed time.
-    $self->{'elapsed'} = (time() - $self->{'starttime'} );
+    $self->{'elapsed'} = Time::HiRes::tv_interval( $self->{'starttime'} );
 
     my $todo_failed = $self->todo() - $self->todo_passed();
 
@@ -252,7 +252,7 @@ sub EOFCallback {
     $self->{upload} = {
         body         => $self->{raw_output},
         elapsed      => $self->{elapsed},
-        occurred     => strftime("%Y-%m-%d %H:%M:%S",localtime($self->{starttime})),
+        occurred     => strftime("%Y-%m-%d %H:%M:%S",localtime($self->{starttime}->[0])),
         status       => $status,
         platform     => $self->{platform},
         executor     => $self->{executor},
