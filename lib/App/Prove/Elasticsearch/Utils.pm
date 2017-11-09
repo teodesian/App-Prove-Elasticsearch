@@ -72,5 +72,51 @@ sub require_indexer {
     return $indexer;
 }
 
+=head2 require_planner($conf)
+
+Require the needed planner implied by the configuration passed.
+Set the relevant ENV var for use by parser, etc.
+
+=cut
+
+sub require_planner {
+    my $conf = shift;
+    return _require_generic(
+        $conf,
+        'App::Prove::Elasticsearch::Planner',
+        'client.planner',
+        'CLIENT_PLANNER'
+    );
+}
+
+=head2 require_platformer($conf)
+
+Require the needed platformer implied by the configuration passed.
+Set the relevant ENV var for use by parser, etc.
+
+=cut
+
+sub require_platformer {
+    my $conf = shift;
+    return _require_generic(
+        $conf,
+        'App::Prove::Elasticsearch::Platformer',
+        'client.platformer',
+        'CLIENT_PLATFORMER'
+    );
+}
+
+sub _require_generic {
+    my ($conf,$prefix,$suffix_key,$envvar) = @_;
+    my $suffix = $conf->{$suffix_key} // 'Default';
+    my $module = "${prefix}::$suffix";
+
+    eval "require $module";
+    die $@ if $@;
+
+    #Set ENV for use by harness
+    $ENV{$envvar} = $module;
+    return $module
+}
 
 1;
