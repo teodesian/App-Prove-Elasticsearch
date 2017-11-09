@@ -3,6 +3,8 @@ A Plugin to upload test results to Elasticsearch in real time.
 
 Has a pluggable archetechure, and a variety of built-in ways to gather information about the system under test.
 
+Built-in Kibana dashboards to visualize the data are in /dashboards.
+
 Can be configured using an INI file in your home directory, "elastest.conf"
 
 When run with no configuration it assumes you want to test things like they are a CPAN perl distribution.

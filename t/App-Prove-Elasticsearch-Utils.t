@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More tests => 7;
 use Test::Fatal;
 use Test::Deep;
 
@@ -29,4 +29,24 @@ CONF: {
 REQUIRE: {
     is(exception { App::Prove::Elasticsearch::Utils::require_indexer({}) },undef,"Indexer load OK: defaults");
     like(exception { App::Prove::Elasticsearch::Utils::require_indexer({ 'client.indexer' => 'Bogus' }) },qr/INC/,"Indexer load fails on bogus module");
+
+    #TODO cover require_planner and require_platformer
 }
+
+GET_LAST_ID: {
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [] } } };
+    use warnings;
+
+    my $e = bless({},'Search::Elasticsearch');
+    is(App::Prove::Elasticsearch::Utils::get_last_index($e,'zippy'), 0, "Can get last index when there are no hits.");
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [1], total => 3 } } };
+    use warnings;
+
+    is(App::Prove::Elasticsearch::Utils::get_last_index($e,'zippy'), 3, "Can get last index when there are 3 hits.");
+
+}
+
+

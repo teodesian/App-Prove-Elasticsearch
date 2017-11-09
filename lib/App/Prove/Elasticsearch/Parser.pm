@@ -263,7 +263,7 @@ sub EOFCallback {
         steps_planned => $self->tests_planned
     };
 
-    &{\&{$self->{indexer}."::index_results"}}( $self->{es_opts},$self->{upload});
+    &{\&{$self->{indexer}."::index_results"}}( $self->{upload});
     return $status;
 }
 

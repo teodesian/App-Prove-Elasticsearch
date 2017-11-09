@@ -7,6 +7,8 @@ use strict;
 use warnings;
 use utf8;
 
+use App::Prove::Elasticsearch::Utils();
+
 use Search::Elasticsearch();
 use List::Util 1.33;
 
@@ -29,6 +31,17 @@ sub index {
     return $index;
 }
 
+=head2 max_query_size
+
+Number of items returned by queries.
+Defaults to 1000.
+
+=cut
+
+our $max_query_size = 1000;
+our $e;
+our $idx;
+
 =head1 SUBROUTINES
 
 =head2 check_index
@@ -45,7 +58,7 @@ sub check_index {
     die "server must be specified" unless $conf->{'server.host'};
     die("port must be specified") unless $port;
     my $serveraddress = "$conf->{'server.host'}$port";
-    my $e = Search::Elasticsearch->new(
+    $e //= Search::Elasticsearch->new(
         nodes           => $serveraddress,
     );
 
@@ -94,14 +107,7 @@ sub check_index {
                                 type   => "date",
                                 format => "yyyy-MM-dd HH:mm:ss"
                             },
-                            executor           => { type => "text" },
-                            status             => { type => "text" },
-                            version            => { type => "text" },
-                            platform           => { type => "text" },
-                            path               => { type => "text" },
-                            defect             => { type => "text" },
-                            steps_planned      => { type => "integer" },
-                            body               => {
+                            executor           => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
@@ -110,6 +116,55 @@ sub check_index {
                                 fields      => {
                                     keyword => { type => "keyword" }
                                 }
+                            },
+                            status             => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {
+                                    keyword => { type => "keyword" }
+                                }
+                            },
+                            version            => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {
+                                    keyword => { type => "keyword" }
+                                }
+                            },
+                            platform           => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {
+                                    keyword => { type => "keyword" }
+                                }
+                            },
+                            path               => { type => "text" },
+                            defect             => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {
+                                    keyword => { type => "keyword" }
+                                }
+                            },
+                            steps_planned      => { type => "integer" },
+                            body               => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
                             },
                             name => {
                                 type        => "text",
@@ -146,55 +201,26 @@ Index a test result (see L<App::Prove::Elasticsearch::Parser> for the input).
 =cut
 
 sub index_results {
-    my ($conf,$result) = @_;
+    my ($result) = @_;
 
-    my $port = $conf->{'server.port'} ? ':'.$conf->{'server.port'} : '';
-    my $serveraddress = "$conf->{'server.host'}$port";
-    die("server and port must be specified") unless $serveraddress;
-    my $e = Search::Elasticsearch->new(
-        nodes           => $serveraddress,
-    );
+    die("check_index must be run first") unless $e;
 
-    my $idx = _get_last_index($e);
+    $idx //= App::Prove::Elasticsearch::Utils::get_last_index($e,$index);
     $idx++;
 
     $e->index(
         index => $index,
         id    => $idx,
-        type  => 'result',
+        type  => 'testsuite',
         body  => $result,
     );
 
-    my $doc_exists = $e->exists(index => $index, type => 'result', id => $idx );
+    my $doc_exists = $e->exists(index => $index, type => 'testsuite', id => $idx );
     if (!defined($doc_exists) || !int($doc_exists)) {
         die "Failed to Index $result->{'name'}, could find no record with ID $idx\n";
     } else {
         print "Successfully Indexed test: $result->{'name'} with result ID $idx\n";
     }
-}
-
-sub _get_last_index {
-    my ($e) = @_;
-
-    my $res = $e->search(
-        index => $index,
-        body  => {
-            query => {
-                match_all => { }
-            },
-            sort => {
-                id => {
-                  order => "desc"
-                }
-            },
-            size => 1
-        }
-    );
-
-    my $hits = $res->{hits}->{hits};
-    return 0 unless scalar(@$hits);
-
-    return $res->{hits}->{total};
 }
 
 =head2 associate_case_with_result(%config)
@@ -222,13 +248,7 @@ Arguments Hash:
 sub associate_case_with_result {
     my %opts = @_;
 
-    my $port = $ENV{'SERVER_PORT'} ? ':'.$ENV{'SERVER_PORT'} : '';
-    my $serveraddress = "$ENV{'SERVER_HOST'}$port";
-    die("server and port must be specified") unless $serveraddress;
-
-    my $e = Search::Elasticsearch->new(
-        nodes           => $serveraddress,
-    );
+    die("check_index must be run first") unless $e;
 
     my %q = (
         index => $index,
@@ -255,21 +275,36 @@ sub associate_case_with_result {
         push(@{$q{body}{query}{bool}{should}}, { match => { version => $version } } );
     }
 
-    my $res = $e->search(%q);
+    #Paginate the query, TODO short-circuit when we stop getting results?
+    my $offset = 0;
+    my $hits = [];
+    my $hitcounter=$max_query_size;
+    while ( $hitcounter == $max_query_size ) {
+        $q{size} = $max_query_size;
+        $q{from} = ( $max_query_size * $offset );
+        my $res = $e->search(%q);
+        push( @$hits, @{$res->{hits}->{hits}} );
+        $hitcounter = scalar(@{$res->{hits}->{hits}});
+        $offset++;
+    }
 
-    my $hits = $res->{hits}->{hits};
     return 0 unless scalar(@$hits);
 
     #Now, update w/ the defect.
     my $failures = 0;
+    my $attempts = 0;
     foreach my $hit (@$hits) {
+        $hit->{_source}->{platform} = [$hit->{_source}->{platform}] if ref($hit->{_source}->{platform}) ne 'ARRAY';
+        next if (scalar(@{$opts{versions}}) && !$hit->{_source}->{version});
         next unless List::Util::any { $hit->{_source}->{version} eq $_ } @{$opts{versions}};
-        next unless List::Util::all { my $p = $_; grep { $_ eq $p} @{$hit->{_source}->{platform}} } @{$opts{platforms}};
+        next if (scalar(@{$opts{platforms}}) && !$hit->{_source}->{platform});
+        next unless List::Util::all { my $p = $_; grep { $_ eq $p } @{$hit->{_source}->{platform}} } @{$opts{platforms}};
         next unless $hit->{_source}->{name} eq $opts{case};
 
+        $attempts++;
         #Merge the existing defects with the ones we are adding in
-        $hit->{case} //= [];
-        my @df_merged = List::Util::uniq((@{$hit->{case}},@{$opts{defects}}));
+        $hit->{defect} //= [];
+        my @df_merged = List::Util::uniq((@{$hit->{defect}},@{$opts{defects}}));
 
         my $res = $e->update(
             index => $index,
@@ -277,7 +312,7 @@ sub associate_case_with_result {
             type => 'result',
             body => {
                 doc => {
-                    case => \@df_merged,
+                    defect => \@df_merged,
                 },
             }
         );
@@ -288,6 +323,8 @@ sub associate_case_with_result {
             $failures++;
         }
     }
+
+    print "No cases matching your query could be found.  No action was taken.\n" unless $attempts;
 
     return $failures;
 }
