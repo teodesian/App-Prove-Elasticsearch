@@ -138,7 +138,7 @@ By default, this option is NOT set, and tests will simply be re-run and indexed.
 
 All parameters passed to the plugin may be set in ~/elastest.conf, which read by Config::Simple.
 Set the host and port values in the [Server] section.
-Set the blamer, indexer and versioner values in the [Client] section.
+Set the autodiscover, blamer, indexer and versioner values in the [Client] section.
 If your Indexer & Versioner subclasses require additional configuration you may put them in arbitrary sections, as the entire configuration is passed to both parent classes.
 
 If no configuration is passed either by file or argument, the plugin chooses to do nothing, and notifies you of this fact.

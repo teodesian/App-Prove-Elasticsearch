@@ -32,41 +32,32 @@ use App::Prove::Elasticsearch::Indexer;
 
 #index_results
 {
+    $App::Prove::Elasticsearch::Indexer::e = undef;
+    like( exception { App::Prove::Elasticsearch::Indexer::index_results({ name => 'zippy.test' }) }, qr/check_index must be run/, "index_results fails if check_index not run first");
+
     no warnings qw{redefine once};
     local *Search::Elasticsearch::new = sub { return bless({},'Search::Elasticsearch') };
     local *Search::Elasticsearch::index = sub { };
     local *Search::Elasticsearch::exists = sub { return 1};
-    local *App::Prove::Elasticsearch::Indexer::_get_last_index = sub { return 0 };
+    local *App::Prove::Elasticsearch::Utils::get_last_index = sub { return 0 };
     use warnings;
 
-    is(App::Prove::Elasticsearch::Indexer::index_results({ 'server.host' => 'zippy.test', 'server.port' => 666 }, { name => 'zippy.test' }), 1, "Indexer runs in the event index nonexistant.");
+    $App::Prove::Elasticsearch::Indexer::e = bless({},'Search::Elasticsearch');
+    is(App::Prove::Elasticsearch::Indexer::index_results({ name => 'zippy.test' }), 1, "index_result returns 1 in the event indexing succeeds.");
 
     no warnings qw{redefine once};
     local *Search::Elasticsearch::exists = sub { return 0 };
     use warnings;
 
-    like( exception { App::Prove::Elasticsearch::Indexer::index_results({ 'server.host' => 'zippy.test', 'server.port' => 666 }, { name => 'zippy.test' }) }, qr/failed to index/i, "Indexer runs in the event index nonexistant.");
-
-}
-
-{
-    no warnings qw{redefine once};
-    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [] } } };
-    use warnings;
-
-    my $e = bless({},'Search::Elasticsearch');
-    is(App::Prove::Elasticsearch::Indexer::_get_last_index($e), 0, "Can get last index when there are no hits.");
-
-    no warnings qw{redefine once};
-    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [1], total => 3 } } };
-    use warnings;
-
-    is(App::Prove::Elasticsearch::Indexer::_get_last_index($e), 3, "Can get last index when there are 3 hits.");
+    like( exception { App::Prove::Elasticsearch::Indexer::index_results({ name => 'zippy.test' }) }, qr/failed to index/i, "check_index dies in event of failure.");
 
 }
 
 # associate_case_with_result
 {
+    $App::Prove::Elasticsearch::Indexer::e = undef;
+    like( exception { App::Prove::Elasticsearch::Indexer::associate_case_with_result() }, qr/check_index must be run/, "associate_case_with_result fails if check_index not run first");
+
     my %args = (
         platforms => ['clownOS', 'clownBrowser'],
         versions  => ['666.666'],
@@ -93,14 +84,17 @@ use App::Prove::Elasticsearch::Indexer;
             ]
         }
     };
+
+    $App::Prove::Elasticsearch::Indexer::e = bless({},'BogusSearch');
     no warnings qw{redefine once};
-    local *Search::Elasticsearch::new = sub { return bless({},'BogusSearch') };
     local *BogusSearch::search = sub { shift; %searchargs = @_; return $searchreturn };
     local *BogusSearch::update = sub { shift; %arg2check = @_; return { result => 'updated' } };
     use warnings;
 
     my $expected_search = {
         index => 'testsuite',
+        from  => 0,
+        size  => $App::Prove::Elasticsearch::Indexer::max_query_size,
         body  => {
             query => {
                 bool => {
@@ -130,7 +124,7 @@ use App::Prove::Elasticsearch::Indexer;
         type  => 'result',
         body  => {
             doc => {
-                case => ['YOLO-666'],
+                defect => ['YOLO-666'],
             },
         }
     };
@@ -155,14 +149,14 @@ use App::Prove::Elasticsearch::Indexer;
     #Check the case where we have bad version/platform/name returned
     {
         local $args{platforms} = ['zipadoodah'];
-        is(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},'',"No cases updated if we don't find correct platform");
+        like(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},qr/No cases matching your query/i,"No cases updated if we don't find correct platform");
     }
     {
         local $args{versions} = ['zipadoodah'];
-        is(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},'',"No cases updated if we don't find correct versions");
+        like(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},qr/No cases matching your query/i,"No cases updated if we don't find correct versions");
     }
     {
         local $args{case} = 'zipadoodah';
-        is(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},'',"No cases updated if we don't find correct case");
+        like(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},qr/No cases matching your query/i,"No cases updated if we don't find correct case");
     }
 }
