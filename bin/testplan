@@ -10,9 +10,12 @@ use warnings;
 
 use Getopt::Long qw{GetOptionsFromArray};
 use App::Prove::Elasticsearch::Utils;
+use App::Prove::State;
 use Pod::Usage;
-use IO::Prompter;
-use List::Util qw{shuffle any};
+use IO::Prompter [-yesno, -single, -stdio, -style=>'bold'];
+use List::Util qw{shuffle};
+use File::Basename qw{basename};
+use POSIX qw{strftime};
 
 =head1 USAGE
 
@@ -20,9 +23,15 @@ testplan --version blahblah --platform something -- test1 test2 test3...testN
 
 Will create a test plan and store it in elasticsearch, supposing one does not already exist for the passed version.
 
-If the provided platform(s) are not yet associated with the plan, it will be updated.  Similarly, tests not found in the plan will be added.
+In the event a plan matching your platform(s) and version is found, tests passed but not found in the plan will be added.
+Similarly, tests found in the plan but not passed will be removed.
 
 If no platform(s) are provided, the configured (or default) platformer class will be used.
+
+The basename of the tests passed will be used to identify 'what tests need to be run', so be sure to name your tests uniquely.
+
+Tests passed which cannot be found will be ignored.
+If no tests are passed, any tests in t/ will be used by default.
 
 =head2 optional switches
 
@@ -31,8 +40,15 @@ If no platform(s) are provided, the configured (or default) platformer class wil
 --prompt - display proposed modifications to a plan (if any) will be made on the server.
 
 --pairwise - If configured with platform groups (see below), consider the plan satisfied if each platform passed appears at least once.
+In the event that a plan update is made, tests will be properly apportioned upon update.
 
 --all-platforms - If configured with platform groups, use all those available rather than passing manually with --platform.
+
+--name - If you want to differentiate your run from others with the same versions/platforms, use this.
+
+--recurse - if passing directories of tests, recurse past the first level to find tests.
+
+--extension - If passing directories, check for tests with these extensions.  May be passed multiple times, defaults to t
 
 =head1 CONFIGURATION
 
@@ -112,11 +128,14 @@ sub main {
     GetOptionsFromArray(
         \@args,
         'platform=s@'   => \$options{platforms},
-        'version=s@'    => \$options{versions},
+        'version=s'     => \$options{version},
         'show'          => \$options{show},
         'prompt'        => \$options{prompt},
         'pairwise'      => \$options{pairwise},
         'all-platforms' => \$options{allplatforms},
+        'recurse'       => \$options{recurse},
+        'extension=s@'  => \$options{exts},
+        'name'          => \$options{name},
         'help'          => \$help,
     );
     $options{platforms} //= [];
@@ -124,18 +143,10 @@ sub main {
     #Deliberately exiting here, as I "unit" test this as the binary
     pod2usage(0) if $help;
 
-    if (!scalar(@args)) {
+    if (!$options{version}) {
         pod2usage(
             -exitval => "NOEXIT",
-            -msg     => "Insufficient arguments.  You must pass at least one test.",
-        );
-        return 1;
-    }
-
-    if (!scalar(@{$options{versions}})) {
-        pod2usage(
-            -exitval => "NOEXIT",
-            -msg     => "Insufficient arguments.  You must pass at least one version.",
+            -msg     => "Insufficient arguments.  You must pass --version.",
         );
         return 2;
     }
@@ -159,6 +170,12 @@ sub main {
         return 4;
     }
 
+    #Use Prove's arg parser to grab tests & globs correctly
+    my $proveState = App::Prove::State->new();
+    $proveState->extensions($options{exts}) if $options{exts};
+    my @tests_filtered = $proveState->get_tests( $options{'recurse'}, @args );
+    @args = map { basename $_ } grep { -f $_ }  @tests_filtered;
+
     #default platforms to whatever platformer can figure out
     if (!scalar(@{$options{platforms}}) && !$options{allplatforms} ) {
         my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($conf);
@@ -170,20 +187,20 @@ sub main {
 
     my @plans = _build_plans($planner,$conf,\@args,%options);
 
-    use Data::Dumper;
-    die Dumper(\@plans);
-
     my $global_result = 0;
     foreach my $plan (@plans) {
 
-        my $proposed = &{ \&{$planner . "::check_plan"} }($plan);
         if ($options{show}) {
-            _print_plan($proposed);
-            continue;
+            _print_plan($plan,1);
+            next;
         }
         if ($options{prompt}) {
-            _print_plan($proposed);
-            prompt( "Do you want to enact the above changes?", -yn ) or continue;
+            _print_plan($plan);
+            if (!$plan->{noop}) {
+                prompt( "Do you want to enact the above changes?" ) or next;
+            } else {
+                next;
+            }
         }
         $global_result += &{ \&{$planner . "::add_plan_to_index"} }($plan);
     }
@@ -281,17 +298,38 @@ sub _build_plans {
     } else {
         push(@plans,_build_plan($planner,$tests,%options));
     }
+
+    #TODO inject creator & created time into plans
+    @plans = map { $_->{created} = strftime("%Y-%m-%d %H:%M:%S",localtime()); $_ } @plans;
+
     return @plans;
 }
 
 sub _build_plan {
     my ($planner,$tests,%options) = @_;
     $options{tests} = $tests;
-    return \%options;
+
+    #First, see if we already have a plan like this.
+    my $existing = &{ \&{$planner . "::get_plan"} }(%options);
+
+    #If not, make the plan.  Otherwise, construct the update statements needed to 'make it so'.
+    if (!$existing) {
+        $existing = &{ \&{$planner . "::make_plan"} }(%options);
+    } else {
+        $existing = &{ \&{$planner . "::make_plan_update"} }($existing,%options);
+    }
+
+    return $existing;
 }
 
 sub _print_plan {
-    my $plan = shift;
+    my ($plan,$force) = @_;
+    if (!$plan->{noop} || $force) {
+        require Data::Dumper;
+        print Data::Dumper::Dumper($plan);
+    } else {
+        print "Plan already exists, and no updates will be made.\n";
+    }
 }
 
 1;
