@@ -29,6 +29,15 @@ sub index {
     return $index;
 }
 
+=head2 max_query_size
+
+Number of items returned by queries.
+Defaults to 1000.
+
+=cut
+
+our $max_query_size = 1000;
+
 =head1 SUBROUTINES
 
 =head2 check_index
@@ -255,18 +264,33 @@ sub associate_case_with_result {
         push(@{$q{body}{query}{bool}{should}}, { match => { version => $version } } );
     }
 
-    my $res = $e->search(%q);
+    #Paginate the query, TODO short-circuit when we stop getting results?
+    my $offset = 0;
+    my $hits = [];
+    my $hitcounter=$max_query_size;
+    while ( $hitcounter == $max_query_size ) {
+        $q{size} = $max_query_size;
+        $q{from} = ( $max_query_size * $offset );
+        my $res = $e->search(%q);
+        push( @$hits, @{$res->{hits}->{hits}} );
+        $hitcounter = scalar(@{$res->{hits}->{hits}});
+        $offset++;
+    }
 
-    my $hits = $res->{hits}->{hits};
     return 0 unless scalar(@$hits);
 
     #Now, update w/ the defect.
     my $failures = 0;
+    my $attempts = 0;
     foreach my $hit (@$hits) {
+        $hit->{_source}->{platform} = [$hit->{_source}->{platform}] if ref($hit->{_source}->{platform}) ne 'ARRAY';
+        next if (scalar(@{$opts{versions}}) && !$hit->{_source}->{version});
         next unless List::Util::any { $hit->{_source}->{version} eq $_ } @{$opts{versions}};
-        next unless List::Util::all { my $p = $_; grep { $_ eq $p} @{$hit->{_source}->{platform}} } @{$opts{platforms}};
+        next if (scalar(@{$opts{platforms}}) && !$hit->{_source}->{platform});
+        next unless List::Util::all { my $p = $_; grep { $_ eq $p } @{$hit->{_source}->{platform}} } @{$opts{platforms}};
         next unless $hit->{_source}->{name} eq $opts{case};
 
+        $attempts++;
         #Merge the existing defects with the ones we are adding in
         $hit->{case} //= [];
         my @df_merged = List::Util::uniq((@{$hit->{case}},@{$opts{defects}}));
@@ -288,6 +312,8 @@ sub associate_case_with_result {
             $failures++;
         }
     }
+
+    print "No cases matching your query could be found.  No action was taken.\n" unless $attempts;
 
     return $failures;
 }
