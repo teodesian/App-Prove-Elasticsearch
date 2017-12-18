@@ -101,6 +101,8 @@ use App::Prove::Elasticsearch::Indexer;
 
     my $expected_search = {
         index => 'testsuite',
+        from  => 0,
+        size  => $App::Prove::Elasticsearch::Indexer::max_query_size,
         body  => {
             query => {
                 bool => {
@@ -130,7 +132,7 @@ use App::Prove::Elasticsearch::Indexer;
         type  => 'result',
         body  => {
             doc => {
-                case => ['YOLO-666'],
+                defect => ['YOLO-666'],
             },
         }
     };
@@ -155,14 +157,14 @@ use App::Prove::Elasticsearch::Indexer;
     #Check the case where we have bad version/platform/name returned
     {
         local $args{platforms} = ['zipadoodah'];
-        is(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},'',"No cases updated if we don't find correct platform");
+        like(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},qr/No cases matching your query/i,"No cases updated if we don't find correct platform");
     }
     {
         local $args{versions} = ['zipadoodah'];
-        is(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},'',"No cases updated if we don't find correct versions");
+        like(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},qr/No cases matching your query/i,"No cases updated if we don't find correct versions");
     }
     {
         local $args{case} = 'zipadoodah';
-        is(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},'',"No cases updated if we don't find correct case");
+        like(capture_merged {App::Prove::Elasticsearch::Indexer::associate_case_with_result(%args)},qr/No cases matching your query/i,"No cases updated if we don't find correct case");
     }
 }

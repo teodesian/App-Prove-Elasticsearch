@@ -292,8 +292,8 @@ sub associate_case_with_result {
 
         $attempts++;
         #Merge the existing defects with the ones we are adding in
-        $hit->{case} //= [];
-        my @df_merged = List::Util::uniq((@{$hit->{case}},@{$opts{defects}}));
+        $hit->{defect} //= [];
+        my @df_merged = List::Util::uniq((@{$hit->{defect}},@{$opts{defects}}));
 
         my $res = $e->update(
             index => $index,
@@ -301,7 +301,7 @@ sub associate_case_with_result {
             type => 'result',
             body => {
                 doc => {
-                    case => \@df_merged,
+                    defect => \@df_merged,
                 },
             }
         );

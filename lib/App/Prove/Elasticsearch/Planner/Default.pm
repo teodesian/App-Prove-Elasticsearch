@@ -19,7 +19,7 @@ our $last_id;
 
 =head2 check_index($conf)
 
-Constructs a new Search::Elasticsearch object usingthe provided configuration file data, and stores it for use by other functions.
+Constructs a new Search::Elasticsearch object using the provided configuration file data, and stores it for use by other functions.
 It then checks the index, and returns false or the object depending on the index status.
 
 Creates the index if it does not exist.
