@@ -29,8 +29,13 @@ Creates the index if it does not exist.
 sub check_index {
     my ($conf) = @_;
 
+    my $port = $conf->{'server.port'} ? ':'.$conf->{'server.port'} : '';
+    die "server must be specified" unless $conf->{'server.host'};
+    die("port must be specified") unless $port;
+    my $serveraddress = "$conf->{'server.host'}$port";
+
     $e //= Search::Elasticsearch->new(
-        nodes           => "$conf->{'server.host'}:$conf->{'server.port'}",
+        nodes           => $serveraddress,
         request_timeout => 30
     );
 
