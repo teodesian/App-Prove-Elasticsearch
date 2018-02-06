@@ -121,6 +121,8 @@ Get a plan matching the description from Elasticsearch.
 sub get_plan {
     my (%options) = @_;
 
+    die "A version must be passed." unless $options{version};
+
     my %q = (
         index => $index,
         body  => {
@@ -144,16 +146,17 @@ sub get_plan {
 
     my $docs = $e->search(%q);
 
+    return 0 unless ref $docs eq 'HASH' && ref $docs->{hits} eq 'HASH' && ref $docs->{hits}->{hits} eq 'ARRAY';
     return 0 unless scalar(@{$docs->{hits}->{hits}});
     my $match = $docs->{hits}->{hits}->[0]->{_source};
 
     my @plats_match = ((ref($match->{platforms}) eq 'ARRAY') ? @{$match->{platforms}}: ($match->{platforms}));
 
-    my $name_correct    = ($match->{name} // '') eq ($options{name} // '');
+    my $name_correct    = !$options{name} || ($match->{name} // '') eq ($options{name} // '');
     my $version_correct = $match->{version} eq $options{version};
     my $plats_size_ok   = scalar(@plats_match) == scalar(@{$options{platforms}});
     my $plats_are_same  = scalar(@plats_match) == scalar(uniq((@plats_match,@{$options{platforms}})));
-    my $plats_correct   = $plats_size_ok && $plats_are_same;
+    my $plats_correct   = !scalar(@{$options{platforms}}) || ($plats_size_ok && $plats_are_same);
 
     $match->{id} = $docs->{hits}->{hits}->[0]->{_id};
     return $match if ($name_correct && $version_correct && $plats_correct);

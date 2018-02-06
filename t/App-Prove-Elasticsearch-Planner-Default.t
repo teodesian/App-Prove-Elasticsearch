@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 5;
+use Test::More tests => 14;
 use Test::Deep;
 use Test::Fatal;
 
@@ -27,3 +27,50 @@ INDEXER: {
 
     is(App::Prove::Elasticsearch::Planner::Default::check_index({ 'server.host' => 'zippy.test', 'server.port' => 666 }),1,"Indexer runs in the event index nonexistant.");
 }
+
+GET_PLAN: {
+    #options: version must be set, platforms and name must be tested independently
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return undef };
+    use warnings;
+    $App::Prove::Elasticsearch::Planner::Default::e = bless({},'Search::Elasticsearch');
+
+    #check version must be set
+    like(exception { App::Prove::Elasticsearch::Planner::Default::get_plan()}, qr/version/ , "Not passing version fails to get plan");
+    is(App::Prove::Elasticsearch::Planner::Default::get_plan(version => 666), 0, "get_plan: Bogus return from Search::Elasticsearch->search() returns false");
+
+
+    my $ret = { hits => { hits => [] } };
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return $ret };
+    use warnings;
+    is(App::Prove::Elasticsearch::Planner::Default::get_plan(version => 666), 0, "get_plan: Empty return from Search::Elasticsearch->search() returns false");
+
+    #check version alone may be passed
+    $ret->{hits}{hits} = [
+        {
+            _source => {
+                platforms => 'shoes',
+                name      => 'zippyPlan',
+                version   => 666,
+                id        => 420,
+            },
+            _id => 420,
+        }
+    ];
+    is_deeply(App::Prove::Elasticsearch::Planner::Default::get_plan(version => 666), $ret->{hits}{hits}->[0]->{_source}, "get_plan returns first matching plan ");
+
+    #check name + version works
+    is_deeply(App::Prove::Elasticsearch::Planner::Default::get_plan(version => 666, name => 'zippyPlan'), $ret->{hits}{hits}->[0]->{_source}, "get_plan returns first name matching plan ");
+    is(App::Prove::Elasticsearch::Planner::Default::get_plan(version => 666, name => 'bogusPlan'), 0, "get_plan returns no plan when bogus name match returned");
+
+    #check platforms + version works
+    is_deeply(App::Prove::Elasticsearch::Planner::Default::get_plan(version => 666, platforms => ['shoes'] ), $ret->{hits}{hits}->[0]->{_source}, "get_plan returns first platform matching plan ");
+    is(App::Prove::Elasticsearch::Planner::Default::get_plan(version => 666, platforms => ['socks'] ), 0, "get_plan returns no plan when bogus platform match returned");
+    is(App::Prove::Elasticsearch::Planner::Default::get_plan(version => 666, platforms => ['socks','shoes'] ), 0, "get_plan returns no plan when insufficient platform match returned");
+
+}
+
+
