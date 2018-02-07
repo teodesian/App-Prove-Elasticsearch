@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 14;
+use Test::More tests => 19;
 use Test::Deep;
 use Test::Fatal;
 
@@ -73,4 +73,28 @@ GET_PLAN: {
 
 }
 
+ADD_TO_INDEX: {
+    is(App::Prove::Elasticsearch::Planner::Default::add_plan_to_index({ noop => 1 }),0,"add_plan_to_index skips NOOP plans");
+    no warnings qw{redefine once};
+    local *App::Prove::Elasticsearch::Planner::Default::_update_plan = sub { return 'whee' };
+    use warnings;
+    is(App::Prove::Elasticsearch::Planner::Default::add_plan_to_index({ update => 1 }),'whee',"add_plan_to_index punts to _update_plan on update plans");
 
+    $App::Prove::Elasticsearch::Planner::Default::e = undef;
+    like(exception {App::Prove::Elasticsearch::Planner::Default::add_plan_to_index()}, qr/es object not defined/i, "add_plan_to_index requires check_index be run first");
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return undef };
+    local *Search::Elasticsearch::index = sub { return 0 };
+    local *Search::Elasticsearch::exists = sub { return 0 };
+    local *App::Prove::Elasticsearch::Utils::get_last_index = sub { return 0 };
+    use warnings;
+    $App::Prove::Elasticsearch::Planner::Default::e = bless( {} , "Search::Elasticsearch");
+    is(App::Prove::Elasticsearch::Planner::Default::add_plan_to_index(), 1, "add_plan_to_index returns 1 in the event of failure");
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::exists = sub { return 1 };
+    use warnings;
+    is(App::Prove::Elasticsearch::Planner::Default::add_plan_to_index(), 0, "add_plan_to_index returns 0 in the event of success");
+
+}

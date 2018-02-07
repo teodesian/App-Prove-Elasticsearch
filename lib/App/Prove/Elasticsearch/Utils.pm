@@ -119,4 +119,37 @@ sub _require_generic {
     return $module
 }
 
+=head2 get_last_index
+
+Ask ES for the last index it has on hand, so we can then add some new records.
+
+Arguments are ES handle and index name.
+
+=cut
+
+sub get_last_index {
+    my ($e,$index) = @_;
+
+    my $res = $e->search(
+        index => $index,
+        body  => {
+            query => {
+                match_all => { }
+            },
+            sort => {
+                id => {
+                  order => "desc"
+                }
+            },
+            size => 1
+        }
+    );
+
+    my $hits = $res->{hits}->{hits};
+    return 0 unless scalar(@$hits);
+
+    return $res->{hits}->{total};
+}
+
+
 1;

@@ -6,6 +6,8 @@ package App::Prove::Elasticsearch::Planner::Default;
 use strict;
 use warnings;
 
+use App::Prove::Elasticsearch::Utils();
+
 use Search::Elasticsearch();
 use File::Basename();
 use Cwd();
@@ -183,7 +185,7 @@ sub add_plan_to_index {
 
     die "check_index not run, ES object not defined!" unless $e;
 
-    my $idx = _get_last_id();
+    my $idx = App::Prove::Elasticsearch::Utils::get_last_index($e,$index);
     $idx++;
 
     $e->index(
@@ -203,33 +205,6 @@ sub add_plan_to_index {
     print "Successfully Indexed plan $pn with result ID $idx\n";
     return 0;
 
-}
-
-sub _get_last_id {
-    if ($last_id) {
-        return $last_id++;
-    }
-
-    my $res = $e->search(
-        index => $index,
-        body  => {
-            query => {
-                match_all => { }
-            },
-            sort => {
-                id => {
-                  order => "desc"
-                }
-            },
-            size => 1
-        }
-    );
-
-    my $hits = $res->{hits}->{hits};
-    return 0 unless scalar(@$hits);
-
-    $last_id = $res->{hits}->{total};
-    return $res->{hits}->{total};
 }
 
 sub _update_plan {

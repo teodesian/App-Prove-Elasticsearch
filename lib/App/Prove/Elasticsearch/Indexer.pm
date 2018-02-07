@@ -7,6 +7,8 @@ use strict;
 use warnings;
 use utf8;
 
+use App::Prove::Elasticsearch::Utils();
+
 use Search::Elasticsearch();
 use List::Util 1.33;
 
@@ -164,7 +166,7 @@ sub index_results {
         nodes           => $serveraddress,
     );
 
-    my $idx = _get_last_index($e);
+    my $idx = App::Prove::Elasticsearch::Utils::get_last_index($e,$index);
     $idx++;
 
     $e->index(
@@ -180,30 +182,6 @@ sub index_results {
     } else {
         print "Successfully Indexed test: $result->{'name'} with result ID $idx\n";
     }
-}
-
-sub _get_last_index {
-    my ($e) = @_;
-
-    my $res = $e->search(
-        index => $index,
-        body  => {
-            query => {
-                match_all => { }
-            },
-            sort => {
-                id => {
-                  order => "desc"
-                }
-            },
-            size => 1
-        }
-    );
-
-    my $hits = $res->{hits}->{hits};
-    return 0 unless scalar(@$hits);
-
-    return $res->{hits}->{total};
 }
 
 =head2 associate_case_with_result(%config)

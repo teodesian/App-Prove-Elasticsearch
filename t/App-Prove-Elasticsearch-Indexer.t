@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 17;
+use Test::More tests => 15;
 use Test::Fatal;
 use Test::Deep;
 use Capture::Tiny qw{capture_merged};
@@ -36,7 +36,7 @@ use App::Prove::Elasticsearch::Indexer;
     local *Search::Elasticsearch::new = sub { return bless({},'Search::Elasticsearch') };
     local *Search::Elasticsearch::index = sub { };
     local *Search::Elasticsearch::exists = sub { return 1};
-    local *App::Prove::Elasticsearch::Indexer::_get_last_index = sub { return 0 };
+    local *App::Prove::Elasticsearch::Utils::get_last_index = sub { return 0 };
     use warnings;
 
     is(App::Prove::Elasticsearch::Indexer::index_results({ 'server.host' => 'zippy.test', 'server.port' => 666 }, { name => 'zippy.test' }), 1, "Indexer runs in the event index nonexistant.");
@@ -46,22 +46,6 @@ use App::Prove::Elasticsearch::Indexer;
     use warnings;
 
     like( exception { App::Prove::Elasticsearch::Indexer::index_results({ 'server.host' => 'zippy.test', 'server.port' => 666 }, { name => 'zippy.test' }) }, qr/failed to index/i, "Indexer runs in the event index nonexistant.");
-
-}
-
-{
-    no warnings qw{redefine once};
-    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [] } } };
-    use warnings;
-
-    my $e = bless({},'Search::Elasticsearch');
-    is(App::Prove::Elasticsearch::Indexer::_get_last_index($e), 0, "Can get last index when there are no hits.");
-
-    no warnings qw{redefine once};
-    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [1], total => 3 } } };
-    use warnings;
-
-    is(App::Prove::Elasticsearch::Indexer::_get_last_index($e), 3, "Can get last index when there are 3 hits.");
 
 }
 
