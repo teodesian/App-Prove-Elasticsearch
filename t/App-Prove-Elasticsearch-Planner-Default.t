@@ -1,9 +1,10 @@
 use strict;
 use warnings;
 
-use Test::More tests => 19;
+use Test::More tests => 22;
 use Test::Deep;
 use Test::Fatal;
+use Capture::Tiny qw{capture_merged};
 
 use App::Prove::Elasticsearch::Planner::Default;
 
@@ -98,3 +99,48 @@ ADD_TO_INDEX: {
     is(App::Prove::Elasticsearch::Planner::Default::add_plan_to_index(), 0, "add_plan_to_index returns 0 in the event of success");
 
 }
+
+UPDATE_PLAN: {
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::update = sub {
+        shift;
+        my %in = @_;
+
+        foreach my $test ( @{$in{body}{doc}{tests}} ) {
+            print "$test ";
+        }
+        print "#\n";
+        return { result => 'sadness came to us' };
+    };
+    use warnings;
+    $App::Prove::Elasticsearch::Planner::Default::e = bless( {} , "Search::Elasticsearch");
+
+    my $plan = {
+        update => {
+            addition => {
+                tests => [
+                    'zippy.test'
+                ]
+            },
+            subtraction => {
+                tests => [
+                    'happy.test'
+                ]
+            },
+        },
+        tests => [ 'happy.test','chompy.test' ]
+    };
+    my $res;
+    my $out = capture_merged { $res = App::Prove::Elasticsearch::Planner::Default::_update_plan($plan) };
+    is($res,1,"_update_plan returns 1 on failure");
+    like($out,qr/^chompy.test zippy.test #/i,"Correct tests sent to update");
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::update = sub {
+        return { result => 'noop' };
+    };
+    use warnings;
+    is(App::Prove::Elasticsearch::Planner::Default::_update_plan($plan),0,"_update_plan returns 0 on success");
+}
+
+
