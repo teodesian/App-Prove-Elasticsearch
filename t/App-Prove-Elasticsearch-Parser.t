@@ -8,7 +8,6 @@ use Capture::Tiny qw{capture_merged};
 
 use FindBin;
 use App::Prove::Elasticsearch::Parser;
-use Carp::Always;
 
 my @expected_modules = (
         'App::Prove::Elasticsearch::Versioner::Default',
