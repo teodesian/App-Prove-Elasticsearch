@@ -271,19 +271,6 @@ sub make_plan_update {
     die "check_index not run, ES object not defined!" unless $e;
     #TODO be sure to do the right thing w pairwise testing (dole out tests appropriately)
 
-    delete $out{show};
-    delete $out{prompt};
-    delete $out{allplatforms};
-    delete $out{exts};
-    delete $out{recurse};
-    delete $out{name} unless $out{name};
-
-    # There are some things we don't want to update.
-    $out{platforms} = $existing->{platforms};
-    $out{pairwise}  = $existing->{pairwise};
-
-    $out{pairwise} //= 'False';
-
     my $adds = {};
     my $subs = {};
     foreach my $okey ( @{$out{tests}} ) {

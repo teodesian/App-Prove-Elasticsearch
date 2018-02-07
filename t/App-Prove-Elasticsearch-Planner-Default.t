@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 22;
+use Test::More tests => 28;
 use Test::Deep;
 use Test::Fatal;
 use Capture::Tiny qw{capture_merged};
@@ -128,7 +128,8 @@ UPDATE_PLAN: {
                 ]
             },
         },
-        tests => [ 'happy.test','chompy.test' ]
+        tests => [ 'happy.test','chompy.test' ],
+        id => 666,
     };
     my $res;
     my $out = capture_merged { $res = App::Prove::Elasticsearch::Planner::Default::_update_plan($plan) };
@@ -143,4 +144,71 @@ UPDATE_PLAN: {
     is(App::Prove::Elasticsearch::Planner::Default::_update_plan($plan),0,"_update_plan returns 0 on success");
 }
 
+MAKE_PLAN: {
+    $App::Prove::Elasticsearch::Planner::Default::e = undef;
+    like(exception {App::Prove::Elasticsearch::Planner::Default::make_plan()}, qr/es object not defined/i, "make_plan requires check_index be run first");
+    $App::Prove::Elasticsearch::Planner::Default::e = bless( {} , "Search::Elasticsearch");
 
+    my %out = (
+        pairwise => 1,
+        show => 1,
+        prompt => 1,
+        allplatforms => 1,
+        exts => 1,
+        recurse => 1,
+        name => undef,
+        tests => ['zippy'],
+    );
+
+    my $expected = {
+        pairwise => 'True',
+        tests    => ['zippy'],
+    };
+
+    is_deeply(App::Prove::Elasticsearch::Planner::Default::make_plan(%out),$expected,"make_plan sanitizes: no name, pairwise => true & noop => 0");
+
+    $out{pairwise} = 0;
+    $expected->{pairwise} = 'False';
+    $out{tests} = [];
+    $expected->{tests} = [];
+    $expected->{noop} = 1;
+    $out{name} = 'eee';
+    $expected->{name} = 'eee';
+
+    is_deeply(App::Prove::Elasticsearch::Planner::Default::make_plan(%out),$expected,"make_plan sanitizes: name, pairwise => false & noop => 1");
+
+}
+
+MAKE_PLAN_UPDATE: {
+    $App::Prove::Elasticsearch::Planner::Default::e = undef;
+    like(exception {App::Prove::Elasticsearch::Planner::Default::make_plan_update()}, qr/es object not defined/i, "make_plan_update requires check_index be run first");
+    $App::Prove::Elasticsearch::Planner::Default::e = bless( {} , "Search::Elasticsearch");
+
+    my $existing = {
+        tests     => ['hoosafudge'],
+    };
+
+    my %out = (
+        tests => ['zippy'],
+    );
+
+    my $expected = {
+        tests    => ['hoosafudge'],
+        update   => {
+            addition    => { tests => ['zippy'] },
+            subtraction => { tests => ['hoosafudge'] },
+        }
+    };
+
+    is_deeply(App::Prove::Elasticsearch::Planner::Default::make_plan_update($existing,%out),$expected,"make_plan_update mongles: test add & sub & noop => 0");
+
+    $out{tests}        = ['zippy'];
+    $existing->{tests} = ['zippy'];
+    $expected->{tests} = ['zippy'];
+    delete $existing->{update};
+    delete $expected->{update};
+    $expected->{noop} = 1;
+
+    is_deeply(App::Prove::Elasticsearch::Planner::Default::make_plan_update($existing,%out),$expected,"make_plan_update mongles: noop => 1");
+
+}
