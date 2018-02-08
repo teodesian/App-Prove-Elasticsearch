@@ -107,14 +107,7 @@ sub check_index {
                                 type   => "date",
                                 format => "yyyy-MM-dd HH:mm:ss"
                             },
-                            executor           => { type => "text" },
-                            status             => { type => "text" },
-                            version            => { type => "text" },
-                            platform           => { type => "text" },
-                            path               => { type => "text" },
-                            defect             => { type => "text" },
-                            steps_planned      => { type => "integer" },
-                            body               => {
+                            executor           => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
@@ -123,6 +116,55 @@ sub check_index {
                                 fields      => {
                                     keyword => { type => "keyword" }
                                 }
+                            },
+                            status             => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {
+                                    keyword => { type => "keyword" }
+                                }
+                            },
+                            version            => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {
+                                    keyword => { type => "keyword" }
+                                }
+                            },
+                            platform           => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {
+                                    keyword => { type => "keyword" }
+                                }
+                            },
+                            path               => { type => "text" },
+                            defect             => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {
+                                    keyword => { type => "keyword" }
+                                }
+                            },
+                            steps_planned      => { type => "integer" },
+                            body               => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
                             },
                             name => {
                                 type        => "text",

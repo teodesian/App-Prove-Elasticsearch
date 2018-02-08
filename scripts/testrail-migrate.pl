@@ -105,6 +105,7 @@ sub index_test {
     my $results = $tr->getTestResults($test->{id});
 
     foreach my $result (@$results) {
+        next unless $result->{status_id};
         next if $tr->{current_status_map}->{$result->{status_id}} eq 'untested';
         next if $tr->{current_status_map}->{$result->{status_id}} eq 'duplicate';
 
@@ -124,6 +125,7 @@ sub index_test {
         $test_mangled->{steps}    = translate_steps($tr,$result->{"custom_$tr->{step_field}"}) if $tr->{step_field} && $result->{"custom_$tr->{step_field}"};
 
         eval { &{ \&{$indexer . "::index_results"} }($test_mangled) }; #Bogus results aren't worth indexing
+        die $@ if $@;
         print "Couldn't index $test->{title}, skipping...\n" if $@;
         last if $tr->{'only-last'};
     }
@@ -132,6 +134,7 @@ sub index_test {
 
 sub translate_status {
     my $status = shift;
+    return 'UNTESTED' unless $status;
     return 'NOT OK' if grep {$_ eq $status} ('failed','retest');
     return 'OK' if grep {$_ eq $status} ('passed');
     return 'SKIP' if $status eq 'skip';
