@@ -17,6 +17,8 @@ Requires you have a functioning ~/.testrailrc (see L<App::Prove::Plugin::TestRai
 
 =item B<--no-tests>: Don't index test results.  Only useful with --index-plan.
 
+=item B<--only-last>: Only index the last result for a given test, such as ones that had to be re-run to pass.
+
 =back
 
 =cut
@@ -31,6 +33,7 @@ use TestRail::API();
 use TestRail::Utils();
 use File::HomeDir qw{my_home};
 use List::Util qw{any reduce};
+use POSIX qw{strftime};
 
 use App::Prove::Elasticsearch::Utils;
 use App::Prove::Elasticsearch::Indexer;
@@ -45,30 +48,32 @@ sub main {
         'project=s@' => \$options->{projects},
         'index-plan' => \$options->{'index-plan'},
         'no-tests'   => \$options->{'no-tests'},
+        'only-last'  => \$options->{'only-last'},
     );
     my @patterns = @args;
 
     my $trconf = TestRail::Utils::parseConfig(my_home());
     my $tr = TestRail::Utils::getHandle($trconf);
     $tr->{step_field} = $trconf->{step_results};
+    $tr->{'only-last'} = $options->{'only-last'};
 
     my $esconf = App::Prove::Elasticsearch::Utils::process_configuration();
     my $indexer = App::Prove::Elasticsearch::Utils::require_indexer($esconf);
     &{ \&{$indexer . "::check_index"} }($esconf);
 
+    $tr->{current_status_map} = [];
+    $tr->{current_status_map} = reduce {
+        my $ret;
+        $ret = $a;
+        $ret->{$b->{id}} = $b->{name};
+        $ret->{$a->{id}} = $a->{name};
+        $ret
+    } @{$tr->getPossibleTestStatuses()};
+
     my $projects = $tr->getProjects();
     @$projects = grep {my $subj = $_; any { $subj->{name} eq $_ } @{$options->{projects}} } @$projects if scalar(@{$options->{projects}});
 
     foreach my $project (@$projects) {
-
-        $tr->{current_status_map} = [];
-        @{$tr->{current_status_map}} = reduce {
-            my $ret;
-            $ret = $a;
-            $ret->{$b->{id}} = $b->{name};
-            $ret->{$a->{id}} = $a->{name};
-            $ret
-        } @{$tr->getConfigurations($project->{id})};
 
         my $runs  = $tr->getRuns($project->{id});
         @$runs = grep {my $subj = $_; any { $subj->{name} =~ m/$_/ } @patterns } @$runs;
@@ -84,7 +89,7 @@ sub main {
             push(@$runs,@$planRuns);
         }
 
-        foreach my $run (@$runs) {
+        foreach my $run (reverse @$runs) {
             my $tests = $tr->getTests($run->{id});
             foreach my $test (@$tests) {
                 $test->{config} = $run->{config};
@@ -100,47 +105,64 @@ sub index_test {
     my $results = $tr->getTestResults($test->{id});
 
     foreach my $result (@$results) {
-        use Data::Dumper;
-        die Dumper($result);
+        next if $tr->{current_status_map}->{$result->{status_id}} eq 'untested';
+        next if $tr->{current_status_map}->{$result->{status_id}} eq 'duplicate';
 
         my $test_mangled = {
             body     => $result->{comment},
             elapsed  => translate_elapsed($result->{elapsed}),
-            occurred => $result->{created_on},
-            status   => translate_status($result->{status_id}),
+            occurred => strftime("%Y-%m-%d %H:%M:%S",localtime($result->{created_on})),
+            status   => translate_status($tr->{current_status_map}->{$result->{status_id}}),
             executor => translate_author($tr,$result->{created_by}),
             version  => $result->{version},
-            name     => $result->{title},
+            name     => $test->{title},
             #path     => dirname($result->{file}), #TODO figure this out?
         };
 
         $test_mangled->{defect}   = $result->{defects} if $result->{defects}; #XXX this may need more work if we have multi-defects on a case
         $test_mangled->{platform} = $test->{config}    if $test->{config}; #XXX this will need more work if we use multi-config
-        $test_mangled->{steps}    = translate_steps($result->{"custom_$tr->{step_field}"}) if $tr->{step_field} && $result->{"custom_$tr->{step_field}"};
+        $test_mangled->{steps}    = translate_steps($tr,$result->{"custom_$tr->{step_field}"}) if $tr->{step_field} && $result->{"custom_$tr->{step_field}"};
 
-        use Data::Dumper;
-        die Dumper($test_mangled);
-
-        &{ \&{$indexer . "::index_results"} }($test_mangled);
+        eval { &{ \&{$indexer . "::index_results"} }($test_mangled) }; #Bogus results aren't worth indexing
+        print "Couldn't index $test->{title}, skipping...\n" if $@;
+        last if $tr->{'only-last'};
     }
 
 }
 
 sub translate_status {
     my $status = shift;
-
-
-    return $status;
+    return 'NOT OK' if grep {$_ eq $status} ('failed','retest');
+    return 'OK' if grep {$_ eq $status} ('passed');
+    return 'SKIP' if $status eq 'skip';
+    return 'TODO FAILED' if $status eq 'todo_fail';
+    return 'TODO PASSED' if $status eq 'todo_pass';
+    return $status; #custom statuses will be imported 'as-is'
 }
 
 sub translate_steps {
-    my $steps = shift;
-
-    return $steps;
+    my ($tr,$steps) = @_;
+    my $ctr = 1;
+    my @new_steps = map { {
+        number  => $ctr++,
+        text    => $_->{content},
+        status  => translate_status($tr->{current_status_map}->{$_->{status_id}}),
+    }  } @$steps;
+    return \@new_steps;
 }
 
 sub translate_elapsed {
+    my $elapsed   = shift;
+    return 0 unless $elapsed;
+    my ($hours)   = $elapsed =~ m/(\d+)h/;
+    my ($minutes) = $elapsed =~ m/(\d+)m/;
+    my ($seconds) = $elapsed =~ m/(\d+)s/;
 
+    $hours   //= 0;
+    $minutes //= 0;
+    $seconds //= 0;
+
+    return int($hours) * 3600 + int($minutes) * 60 + int($seconds);
 }
 
 sub translate_author {

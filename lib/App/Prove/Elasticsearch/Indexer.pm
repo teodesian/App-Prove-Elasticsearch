@@ -39,6 +39,8 @@ Defaults to 1000.
 =cut
 
 our $max_query_size = 1000;
+our $e;
+our $idx;
 
 =head1 SUBROUTINES
 
@@ -56,12 +58,12 @@ sub check_index {
     die "server must be specified" unless $conf->{'server.host'};
     die("port must be specified") unless $port;
     my $serveraddress = "$conf->{'server.host'}$port";
-    my $e = Search::Elasticsearch->new(
+    $e //= Search::Elasticsearch->new(
         nodes           => $serveraddress,
     );
 
     #XXX for debugging
-    #$e->indices->delete( index => $index );
+    $e->indices->delete( index => $index );
 
     if (!$e->indices->exists( index => $index )) {
         $e->indices->create(
@@ -157,26 +159,21 @@ Index a test result (see L<App::Prove::Elasticsearch::Parser> for the input).
 =cut
 
 sub index_results {
-    my ($conf,$result) = @_;
+    my ($result) = @_;
 
-    my $port = $conf->{'server.port'} ? ':'.$conf->{'server.port'} : '';
-    my $serveraddress = "$conf->{'server.host'}$port";
-    die("server and port must be specified") unless $serveraddress;
-    my $e = Search::Elasticsearch->new(
-        nodes           => $serveraddress,
-    );
+    die("check_index must be run first") unless $e;
 
-    my $idx = App::Prove::Elasticsearch::Utils::get_last_index($e,$index);
+    $idx //= App::Prove::Elasticsearch::Utils::get_last_index($e,$index);
     $idx++;
 
     $e->index(
         index => $index,
         id    => $idx,
-        type  => 'result',
+        type  => 'testsuite',
         body  => $result,
     );
 
-    my $doc_exists = $e->exists(index => $index, type => 'result', id => $idx );
+    my $doc_exists = $e->exists(index => $index, type => 'testsuite', id => $idx );
     if (!defined($doc_exists) || !int($doc_exists)) {
         die "Failed to Index $result->{'name'}, could find no record with ID $idx\n";
     } else {
@@ -209,13 +206,7 @@ Arguments Hash:
 sub associate_case_with_result {
     my %opts = @_;
 
-    my $port = $ENV{'SERVER_PORT'} ? ':'.$ENV{'SERVER_PORT'} : '';
-    my $serveraddress = "$ENV{'SERVER_HOST'}$port";
-    die("server and port must be specified") unless $serveraddress;
-
-    my $e = Search::Elasticsearch->new(
-        nodes           => $serveraddress,
-    );
+    die("check_index must be run first") unless $e;
 
     my %q = (
         index => $index,
