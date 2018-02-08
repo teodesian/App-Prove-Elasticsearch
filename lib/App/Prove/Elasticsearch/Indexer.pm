@@ -63,7 +63,7 @@ sub check_index {
     );
 
     #XXX for debugging
-    $e->indices->delete( index => $index );
+    #$e->indices->delete( index => $index );
 
     if (!$e->indices->exists( index => $index )) {
         $e->indices->create(
