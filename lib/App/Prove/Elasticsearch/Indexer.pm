@@ -147,7 +147,16 @@ sub check_index {
                                     keyword => { type => "keyword" }
                                 }
                             },
-                            path               => { type => "text" },
+                            path               => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {
+                                    keyword => { type => "keyword" }
+                                }
+                            },
                             defect             => {
                                 type        => "text",
                                 analyzer    => "default",
