@@ -38,6 +38,8 @@ use POSIX qw{strftime};
 use App::Prove::Elasticsearch::Utils;
 use App::Prove::Elasticsearch::Indexer;
 
+our $case_cache = {};
+
 if (!caller()) {
     my %ARGS = main(@ARGV);
     exit 0 if delete $ARGS{ingest};
@@ -119,12 +121,26 @@ sub main {
         foreach my $run (reverse @$runs) {
             my $tests = $tr->getTests($run->{id});
             foreach my $test (@$tests) {
+
+                $test->{section} = get_section_info($tr,$test->{case_id});
+
                 $test->{config} = $run->{config};
                 index_test($tr,$indexer,$test);
             }
         }
     }
     return %ret;
+}
+
+sub get_section_info {
+    my ($tr,$cid) = @_;
+
+    return $case_cache->{$cid} if $case_cache->{$cid};
+
+    my $c = $tr->getCaseByID($cid);
+    my $s = $tr->getSectionByID($c->{section_id});
+    $case_cache->{$cid} = $s->{name};
+    return $s->{name};
 }
 
 sub index_test {
@@ -145,7 +161,7 @@ sub index_test {
             executor => translate_author($tr,$result->{created_by}),
             version  => $result->{version},
             name     => $test->{title},
-            #path     => dirname($result->{file}), #TODO figure this out?
+            path     => $test->{section},
         };
 
         $test_mangled->{defect}   = $result->{defects} if $result->{defects}; #XXX this may need more work if we have multi-defects on a case
