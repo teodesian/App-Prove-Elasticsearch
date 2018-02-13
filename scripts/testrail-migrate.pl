@@ -39,10 +39,11 @@ use App::Prove::Elasticsearch::Utils;
 use App::Prove::Elasticsearch::Indexer;
 
 our $case_cache = {};
+our $sec_cache  = {};
 
 if (!caller()) {
     my %ARGS = main(@ARGV);
-    exit 0 if delete $ARGS{ingest};
+    exit 0 unless delete $ARGS{ingest};
     foreach my $k (keys(%ARGS)) { delete $ARGS{$k} unless $ARGS{$k}; }
 
     my $extra_args = delete $ARGS{patterns};
@@ -72,7 +73,6 @@ sub main {
         ingest       => \$options->{ingest},
     );
     my @patterns = @args;
-
 
     my %ret = %$options;
     $ret{'since'}    = time(); #XXX this is imperfect, and could lead to double ingest, but --ingest shouldn't be used on a long term basis.
@@ -118,15 +118,36 @@ sub main {
             push(@$runs,@$planRuns);
         }
 
-        foreach my $run (reverse @$runs) {
+        foreach my $run (@$runs) {
+			unless ($run->{passed_count}         + $run->{failed_count}         + $run->{blocked_count} +
+				    $run->{custom_status1_count} + $run->{custom_status2_count} + $run->{custom_status3_count} +
+					$run->{custom_status4_count} + $run->{custom_status5_count} + $run->{custom_status6_count} +
+					$run->{custom_status7_count}
+			) {
+				print "Run $run->{id} had no results, skipping...\n";
+				next;
+			}
+
+			my @documents;
+			print "Examining run $run->{id}...\n";
             my $tests = $tr->getTests($run->{id});
             foreach my $test (@$tests) {
 
                 $test->{section} = get_section_info($tr,$test->{case_id});
 
                 $test->{config} = $run->{config};
-                index_test($tr,$indexer,$test);
+				my @rdocs = build_document($tr,$test);
+				unless (@rdocs) {
+					print "No results for $test->{title}, skipping...\n";
+					next;
+				}
+				print "Adding ".scalar(@rdocs)." results for $test->{title}...\n";
+                push(@documents,@rdocs);
             }
+			next unless scalar(@documents);
+			print "Indexing ".scalar(@documents)." documents...";
+	        &{ \&{$indexer . "::bulk_index_results"} }(@documents);
+			print "Done!\n";
         }
     }
     return %ret;
@@ -138,16 +159,26 @@ sub get_section_info {
     return $case_cache->{$cid} if $case_cache->{$cid};
 
     my $c = $tr->getCaseByID($cid);
-    my $s = $tr->getSectionByID($c->{section_id});
-    $case_cache->{$cid} = $s->{name};
-    return $s->{name};
+    my $s = _get_sec($tr,$c->{section_id});
+    $case_cache->{$cid} = $s;
+    return $s;
 }
 
-sub index_test {
-    my ($tr,$indexer,$test) = @_;
+sub _get_sec {
+	my ($tr,$sec) = @_;
+	return $sec_cache->{$sec} if $sec_cache->{$sec};
+
+    my $s = $tr->getSectionByID($sec);
+	$sec_cache->{$sec} = $s->{name};
+	return $s->{name};
+}
+
+sub build_document {
+    my ($tr,$test) = @_;
 
     my $results = $tr->getTestResults($test->{id});
 
+	my @documents;
     foreach my $result (@$results) {
         next unless $result->{status_id};
         next if $tr->{current_status_map}->{$result->{status_id}} eq 'untested';
@@ -168,11 +199,10 @@ sub index_test {
         $test_mangled->{platform} = $test->{config}    if $test->{config}; #XXX this will need more work if we use multi-config
         $test_mangled->{steps}    = translate_steps($tr,$result->{"custom_$tr->{step_field}"}) if $tr->{step_field} && $result->{"custom_$tr->{step_field}"};
 
-        eval { &{ \&{$indexer . "::index_results"} }($test_mangled) }; #Bogus results aren't worth indexing
-        print "Couldn't index $test->{title}, skipping...\n" if $@;
+		push(@documents,$test_mangled);
         last if $tr->{'only-last'};
     }
-
+	return @documents;
 }
 
 sub translate_status {

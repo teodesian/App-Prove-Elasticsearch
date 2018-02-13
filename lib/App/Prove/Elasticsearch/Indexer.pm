@@ -40,6 +40,7 @@ Defaults to 1000.
 
 our $max_query_size = 1000;
 our $e;
+our $bulk_helper;
 our $idx;
 
 =head1 SUBROUTINES
@@ -220,7 +221,7 @@ sub index_results {
     $e->index(
         index => $index,
         id    => $idx,
-        type  => 'testsuite',
+        type  => $index,
         body  => $result,
     );
 
@@ -230,6 +231,20 @@ sub index_results {
     } else {
         print "Successfully Indexed test: $result->{'name'} with result ID $idx\n";
     }
+}
+
+#Helper for migration methods
+sub bulk_index_results {
+	my @results = @_;
+	$bulk_helper //= $e->bulk_helper(
+		index    => $index,
+		type     => $index,
+	);
+
+    $idx //= App::Prove::Elasticsearch::Utils::get_last_index($e,$index);
+
+	$bulk_helper->index(map { $idx++; { id => $idx, source => $_ } } @results);
+	$bulk_helper->flush();
 }
 
 =head2 associate_case_with_result(%config)
