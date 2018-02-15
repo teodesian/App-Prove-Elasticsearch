@@ -118,7 +118,7 @@ sub main {
             push(@$runs,@$planRuns);
         }
 
-        foreach my $run (@$runs) {
+        foreach my $run (reverse @$runs) {
 			unless ($run->{passed_count}         + $run->{failed_count}         + $run->{blocked_count} +
 				    $run->{custom_status1_count} + $run->{custom_status2_count} + $run->{custom_status3_count} +
 					$run->{custom_status4_count} + $run->{custom_status5_count} + $run->{custom_status6_count} +
@@ -132,6 +132,10 @@ sub main {
 			print "Examining run $run->{id}...\n";
             my $tests = $tr->getTests($run->{id});
             foreach my $test (@$tests) {
+                if (!$test->{case_id}) {
+                    print "Encountered malformed test.  Skipping.\n";
+                    next;
+                }
 
                 $test->{section} = get_section_info($tr,$test->{case_id});
 
