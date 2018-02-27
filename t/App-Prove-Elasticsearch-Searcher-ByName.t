@@ -1,19 +1,26 @@
 use strict;
 use warnings;
 
-use Test::More tests => 9;
+use Test::More tests => 7;
 use Test::Fatal;
 use Test::Deep;
 
+use App::Prove::Elasticsearch::Indexer;
 use App::Prove::Elasticsearch::Searcher::ByName;
 
 {
     no warnings qw{redefine once};
     local *Search::Elasticsearch::new = sub { return 1 };
-    local *App::Prove::Elasticsearch::Searcher::ByName::_require_deps = sub {};
+    local *App::Prove::Elasticsearch::Utils::require_versioner = sub {};
+    local *App::Prove::Elasticsearch::Utils::require_platformer = sub {};
     use warnings;
 
-    is( exception { App::Prove::Elasticsearch::Searcher::ByName->new('a','b','c') }, undef, "Constructor works");
+    my $indexer = bless({},'App::Prove::Elasticsearch::Indexer');
+    my $input = {
+        'server.host' => 'whee.test',
+        'server.port' => '666',
+    };
+    is( exception { App::Prove::Elasticsearch::Searcher::ByName->new( $input, $indexer) }, undef, "Constructor works");
 }
 
 {
@@ -56,12 +63,6 @@ use App::Prove::Elasticsearch::Searcher::ByName;
     @res = $s->filter('/path/to/zippy.test');
     cmp_bag(\@res,['/path/to/zippy.test'],"Wrong version correctly recognized as being wrong");
 
-}
-
-{
-    my ($v,$p) = App::Prove::Elasticsearch::Searcher::ByName::_require_deps('Default','Default');
-    is($v,'App::Prove::Elasticsearch::Versioner::Default',"Require deps returns correct versioner");
-    is($p,'App::Prove::Elasticsearch::Platformer::Default',"Require deps returns correct platformer");
 }
 
 {

@@ -13,9 +13,33 @@ use File::Basename();
 use Cwd();
 use List::Util qw{uniq};
 
+=head1 SUBCLASSING
+
+The most useful reason to subclass the planner is to tell the system where to find named tests stored in a plan.
+For a variety of good reasons, we do not store paths to tests in plans.
+You are expected to alter find_test_paths() to suit your needs if the default behavior (search t/) is insufficient.
+
+=head1 VARIABLES
+
+=head2 index (STRING)
+
+The name of the elasticsearch index used.
+If you are subclassing this, be aware that the Searcher plugin will rely on this.
+
+=cut
+
 our $index = 'testplans';
 our $e; # for caching
 our $last_id;
+
+=head2 max_query_size
+
+Number of items returned by queries.
+Defaults to 1000.
+
+=cut
+
+our $max_query_size = 1000;
 
 =head1 CONSTRUCTOR
 
@@ -114,9 +138,23 @@ sub check_index {
 
 All methods below die if the ES handle hasn't been defined by check_index.
 
+=head2 find_test_paths(@tests)
+
+Resolves the paths to your tests.  By default this is the t/ directory under your current directory.
+See SUBCLASSING for more information.
+
+Returns ARRAY
+
+=cut
+
+sub find_test_paths {
+    my (@tests) = @_;
+    return map { "t/$_" } @tests;
+}
+
 =head2 get_plan
 
-Get a plan matching the description from Elasticsearch.
+Get the plan most closely matching the description from Elasticsearch.
 
 =cut
 
@@ -137,7 +175,7 @@ sub get_plan {
                     ],
                 },
             },
-            size => 1
+			size => 1,
         },
     );
 
@@ -164,6 +202,82 @@ sub get_plan {
     return $match if ($name_correct && $version_correct && $plats_correct);
 
     return 0;
+}
+
+=head2 get_plans(%options)
+
+Get all the plans matching the version/platforms passed.
+
+Input hash specification:
+
+=over 4
+
+=item B<version> - Required. Version of the software to be tested.
+
+=item B<name> - Optional.  Name of the test plan used (if any).
+
+=item B<platforms> - Optional.  ARRAYREF of platform names to be tested upon.  Must match all provided platforms.
+
+=back
+
+=cut
+
+sub get_plans {
+    my (%options) = @_;
+
+    die "A version must be passed." unless $options{version};
+
+    my %q = (
+        index => $index,
+        body  => {
+            query => {
+                query_string => {
+					query => qq{version: "$options{version}"},
+                },
+            },
+        },
+    );
+
+    $q{body}{query}{query_string}{query} .= qq{ AND name: "$options{name}" } if $options{name};
+
+    foreach my $plat (@{$options{platforms}}) {
+        $q{body}{query}{query_string}{query} .= qq{ AND platforms: "$plat" };
+    }
+    return App::Prove::Elasticsearch::Utils::do_paginated_query($e,$max_query_size,%q);
+}
+
+=head2 get_plans_needing_work(%options)
+
+Ask which of the plans in ES fits the provided specification.
+
+Input hash specification:
+
+=over 4
+
+=item B<searcher> - Required. App::Prove::Elasticsearch::Searcher::* object.
+
+=item All other items should be the same as in get_plans.
+
+=back
+
+=cut
+
+sub get_plans_needing_work {
+    my (%options) = @_;
+
+    die "Can't find plans needing work without case autodiscover configured!" unless $options{searcher};
+
+    my @plans;
+    my $docs  = get_plans(%options);
+    return () unless ref $docs eq 'ARRAY' && scalar(@$docs);
+
+    foreach my $doc (@$docs) {
+        next unless ref $doc->{_source}->{tests} eq 'ARRAY' && scalar(@{$doc->{_source}->{tests}});
+        my @tests = $options{searcher}->filter(find_test_paths(@{$doc->{_source}->{tests}}));
+        $doc->{_source}->{tests} = \@tests;
+        push(@plans,$doc->{_source}) if @tests;
+    }
+    return \@plans;
 }
 
 =head2 add_plan_to_index($plan)
@@ -247,7 +361,7 @@ sub make_plan {
     die "check_index not run, ES object not defined!" unless $e;
 
     my %out = %options;
-    $out{pairwise} = $out{pairwise} ? "True" : "False";
+    $out{pairwise} = $out{pairwise} ? "true" : "false";
     delete $out{show};
     delete $out{prompt};
     delete $out{allplatforms};
