@@ -134,6 +134,22 @@ This module ships with:
 
 By default, this option is NOT set, and tests will simply be re-run and indexed.
 
+=head2 QUEUE
+
+By default, when running test plans via -PElasticsearch='plan=SomePlan,...', we run everything in the plan possible based on the local host's configuration.
+In some situations though, you might have more work than your local host can satisfy, and need to distribute your testing load.
+
+To facilitate that, App::Prove::Elasticsearch::Queue::* modules have been provided to assist you in going about that:
+
+=over 4
+
+=item B<Default>: Runs everything in the plan possible based on localhost's configuration, as defined by your platformer/versioner.
+
+=item B<Rabbit>:  Use RabbitMQ to run a portion of the queue relevant to the host's configuration, as defined by your platformer/versioner.
+
+A tool (bin/testd) has also been provided to leverage these queues by watching and waiting for work.
+
+
 =head2 CONFIGURATION
 
 All parameters passed to the plugin may be set in ~/elastest.conf, which read by Config::Simple.
