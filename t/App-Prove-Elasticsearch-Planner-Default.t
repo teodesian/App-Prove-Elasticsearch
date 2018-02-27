@@ -161,14 +161,14 @@ MAKE_PLAN: {
     );
 
     my $expected = {
-        pairwise => 'True',
+        pairwise => 'true',
         tests    => ['zippy'],
     };
 
     is_deeply(App::Prove::Elasticsearch::Planner::Default::make_plan(%out),$expected,"make_plan sanitizes: no name, pairwise => true & noop => 0");
 
     $out{pairwise} = 0;
-    $expected->{pairwise} = 'False';
+    $expected->{pairwise} = 'false';
     $out{tests} = [];
     $expected->{tests} = [];
     $expected->{noop} = 1;

@@ -10,6 +10,7 @@ use Search::Elasticsearch();
 use File::Basename();
 use Cwd();
 use List::Util qw{uniq};
+use App::Prove::Elasticsearch::Utils();
 
 =head1 CONSTRUCTOR
 
@@ -24,17 +25,17 @@ They default to 'Default'.
 =cut
 
 sub new {
-    my ($class,$server,$port,$index,$versioner,$platformer) = @_;
-    $versioner //= 'Default';
-    $platformer //= 'Default';
-    my ($v, $p) = _require_deps($versioner,$platformer);
+    my ($class,$conf,$indexer) = @_;
+
+	my $v = App::Prove::Elasticsearch::Utils::require_versioner($conf);
+	my $p = App::Prove::Elasticsearch::Utils::require_platformer($conf);
 
     return bless({
         handle => Search::Elasticsearch->new(
-            nodes           => "$server:$port",
+            nodes           => "$conf->{'server.host'}:$conf->{'server.port'}",
             request_timeout => 30
         ),
-        index      => $index,
+        index      => $indexer->index,
         versioner  => $v,
         platformer => $p,
     },$class);
@@ -88,7 +89,10 @@ sub filter {
         my $docs = $self->{handle}->search(%q);
 
         #OK, check if this document we got back *actually* matched
-        next unless scalar(@{$docs->{hits}->{hits}});
+        if (!scalar(@{$docs->{hits}->{hits}}) ) {
+            push(@tests_filtered,$test);
+            next;
+        }
         my $match = $docs->{hits}->{hits}->[0]->{_source};
 
         my @plats_match = ((ref($match->{platform}) eq 'ARRAY') ? @{$match->{platform}}: ($match->{platform}));
@@ -131,17 +135,6 @@ sub _has_results {
     return 0 unless scalar(@$hits);
 
     return $res->{hits}->{total};
-}
-
-sub _require_deps {
-    my ($versioner,$platformer) = @_;
-    $versioner  = "App::Prove::Elasticsearch::Versioner::".$versioner;
-    $platformer = "App::Prove::Elasticsearch::Platformer::".$platformer;
-    eval "require $versioner";
-    die $@ if $@;
-    eval "require $platformer";
-    die $@ if $@;
-    return ($versioner,$platformer);
 }
 
 1;

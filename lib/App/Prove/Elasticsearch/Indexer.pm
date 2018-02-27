@@ -5,7 +5,6 @@ package App::Prove::Elasticsearch::Indexer;
 
 use strict;
 use warnings;
-use utf8;
 
 use App::Prove::Elasticsearch::Utils();
 
@@ -233,7 +232,15 @@ sub index_results {
     }
 }
 
-#Helper for migration methods
+=head2 bulk_index_results(@results)
+
+Helper method for migration scripts.
+Uploads an array of results in bulk such as would be fed to index_results.
+
+It is up to the caller to chunk inputs as is appropriate for your installation.
+
+=cut
+
 sub bulk_index_results {
 	my @results = @_;
 	$bulk_helper //= $e->bulk_helper(
@@ -300,18 +307,7 @@ sub associate_case_with_result {
     }
 
     #Paginate the query, TODO short-circuit when we stop getting results?
-    my $offset = 0;
-    my $hits = [];
-    my $hitcounter=$max_query_size;
-    while ( $hitcounter == $max_query_size ) {
-        $q{size} = $max_query_size;
-        $q{from} = ( $max_query_size * $offset );
-        my $res = $e->search(%q);
-        push( @$hits, @{$res->{hits}->{hits}} );
-        $hitcounter = scalar(@{$res->{hits}->{hits}});
-        $offset++;
-    }
-
+    my $hits = App::Prove::Elasticsearch::Utils::do_paginated_query($e,$max_query_size,%q);
     return 0 unless scalar(@$hits);
 
     #Now, update w/ the defect.
