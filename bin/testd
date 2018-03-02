@@ -1,0 +1,81 @@
+#!/usr/bin/env perl
+
+# PODNAME: testd
+# ABSTRACT: watch for tests needing running and run them
+
+package Testd;
+
+use strict;
+use warnings;
+
+use POSIX qw{setsid};
+
+use App::Prove::Elasticsearch::Utils;
+
+main() unless caller();
+
+=head1 USAGE
+
+testd
+
+=head1 SUBROUTINES
+
+=head2 main
+
+Runs the program and parses arguments.
+
+=cut
+
+sub main {
+	my $pid = daemonify() or die "Could not daemonify";
+	print "Spawned as PID $pid\n";
+
+    my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
+    my $q = &{ \&{$platformer . "->new"} }();
+
+	my $jobspec = {};
+	my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($conf);
+	$jobspec->{platforms} = &{ \&{$platformer . "::get_platforms"} }();
+
+	my $versioner = App::Prove::Elasticsearch::Utils::require_versioner($conf);
+	$jobspec->{version} = &{ \&{$versioner . "::get_version"} }();
+
+	$jobspec->{queue_name} = $q->build_queue_name($jobspec);
+
+	while (1) {
+		my $jobs = $q->get_jobs($jobspec);
+		use Data::Dumper;
+		die Dumper($jobs);
+	}
+}
+
+=head2 daemonify
+
+I am purposely not having a PIDFile, logging or any other facilities you can get with start-stop-daemon.
+A service file will be provided in /service.
+
+=cut
+
+sub daemonify {
+    my ( $test_only ) = @_;    # Flag for unit tests. Unfortunately there's not much other way I can safely test this in a unit test (that I can figure out anyways).
+    $test_only //= 0;
+
+    my $pid;
+    unless ($test_only) {    # uncoverable branch true
+        $pid = fork;
+        exit 0 if $pid;
+        exit 1 if !defined($pid);
+        setsid();
+        $pid = fork;
+        exit 0 if $pid;
+        exit 1 if not defined $pid;
+        chdir '/' or die $!;
+        umask 0;
+
+    }
+    return $pid;
+}
+
+1;
+
+__END__

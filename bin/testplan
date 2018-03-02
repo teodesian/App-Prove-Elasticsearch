@@ -22,6 +22,7 @@ use POSIX qw{strftime};
 testplan --version blahblah --platform something -- test1 test2 test3...testN
 
 Will create a test plan and store it in elasticsearch, supposing one does not already exist for the passed version.
+Will also queue tests if a non-default Queue module is configured in elastest.conf.
 
 In the event a plan matching your platform(s) and version is found, tests passed but not found in the plan will be added.
 Similarly, tests found in the plan but not passed will be removed.
@@ -187,7 +188,11 @@ sub main {
 
     my @plans = _build_plans($planner,$conf,\@args,%options);
 
+    my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
+    my $q = &{ \&{$platformer . "->new"} }();
+
     my $global_result = 0;
+    my $queue_result  = 0;
     foreach my $plan (@plans) {
 
         if ($options{show}) {
@@ -203,8 +208,10 @@ sub main {
             }
         }
         $global_result += &{ \&{$planner . "::add_plan_to_index"} }($plan);
+        $queue_result  += $q->queue_jobs($plan);
     }
-    print "$global_result tests failed to be associated, examine above output\n" if $global_result;
+    print "$global_result plans failed to be created, examine above output\n" if $global_result;
+    print "$queue_result plans failed to be queued, examine above output\n"   if $queue_result;
     return $global_result ? 2 : 0;
 
 }

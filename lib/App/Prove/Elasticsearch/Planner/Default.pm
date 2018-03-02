@@ -137,7 +137,6 @@ sub get_plan {
                     ],
                 },
             },
-            size => 1
         },
     );
 
@@ -164,6 +163,47 @@ sub get_plan {
     return $match if ($name_correct && $version_correct && $plats_correct);
 
     return 0;
+}
+
+=head2 get_plans
+
+Get all the plans matching the version/platforms passed.
+
+=cut
+
+sub get_plans {
+    my (%options) = @_;
+
+    die "A version must be passed." unless $options{version};
+
+    my %q = (
+        index => $index,
+        body  => {
+            query => {
+                bool => {
+                    must => [
+                        {match => {
+                            version => $options{version},
+                        }},
+                    ],
+                },
+            },
+        },
+    );
+
+    push(@{$q{body}{query}{bool}{must}}, { match => { name => $options{name} } } ) if $options{name};
+
+    foreach my $plat (@{$options{platforms}}) {
+        push(@{$q{body}{query}{bool}{must}}, { match => { platforms => $plat } } );    }
+
+    return $e->search(%q);
+}
+
+sub get_plans_needing_work {
+    my (%options) = @_;
+    my $docs = get_plans(%options);
+
+	#TODO
 }
 
 =head2 add_plan_to_index($plan)

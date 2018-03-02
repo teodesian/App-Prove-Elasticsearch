@@ -50,7 +50,7 @@ Returns an array of all tests in a test plan in random order, which the client t
 
 sub get_work_left_in_index {
     my ($self,$jobspec) = @_;
-    my $plan = &{ \&{$self->{planner} . "::get_plan"} }(%$jobspec);
+    my $plan = &{ \&{$self->{planner} . "::get_plans_needing_work"} }(%$jobspec);
     return () unless $plan;
     my @tests = ref $plan->{tests} eq 'ARRAY' ? @{$plan->{tests}} : ($plan->{tests});
     return shuffle(@tests);
@@ -80,9 +80,24 @@ The idea here is that clients will run get_jobs in a loop (likely using several 
 
 sub get_jobs {
     my ($self,$jobspec) = @_;
-    my @jobs = $self->get_work_in_index($jobspec);
+    my @jobs = $self->get_work_left_in_index($jobspec);
     return @jobs unless $self->{conf}->{'queue.granularity'};
     return splice(@jobs,0,$self->{conf}->{'queue.granularity'});
+}
+
+=head2 build_queue_name
+
+Builds a queue_name inside a passed jobspec containing version and platforms information.
+
+Here mostly in case you need to override this for your queueing solution.
+
+=cut
+
+sub build_queue_name {
+	my ($self,$jobspec) = @_;
+	my $name = $jobspec->{version};
+	$name .= join('',@{$jobspec->{platforms}});
+	return $name;
 }
 
 1;

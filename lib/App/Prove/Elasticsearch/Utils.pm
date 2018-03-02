@@ -55,7 +55,7 @@ sub process_configuration {
 =head2 require_indexer($conf)
 
 Require the needed indexer implied by the configuration passed.
-Set the relevant ENV var for use by parser, etc.
+Set the ENV var CLIENT_INDEXER for use by parser, etc.
 
 =cut
 
@@ -75,7 +75,7 @@ sub require_indexer {
 =head2 require_planner($conf)
 
 Require the needed planner implied by the configuration passed.
-Set the relevant ENV var for use by parser, etc.
+Set the ENV var CLIENT_PLANNER for use by parser, etc.
 
 =cut
 
@@ -92,7 +92,7 @@ sub require_planner {
 =head2 require_platformer($conf)
 
 Require the needed platformer implied by the configuration passed.
-Set the relevant ENV var for use by parser, etc.
+Set the ENV var CLIENT_PLATFORMER for use by parser, etc.
 
 =cut
 
@@ -103,6 +103,23 @@ sub require_platformer {
         'App::Prove::Elasticsearch::Platformer',
         'client.platformer',
         'CLIENT_PLATFORMER'
+    );
+}
+
+=head2 require_queue($conf)
+
+Require the needed queue module implied by the configuration passed
+Sets the ENV var CLIENT_QUEUE for use by parser, etc
+
+=cut
+
+sub require_queue {
+    my $conf = shift;
+    return _require_generic(
+        $conf,
+        'App::Prove::Elasticsearch::Queue',
+        'client.queue',
+        'CLIENT_QUEUE'
     );
 }
 
@@ -150,6 +167,5 @@ sub get_last_index {
 
     return $res->{hits}->{total};
 }
-
 
 1;
