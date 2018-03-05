@@ -300,18 +300,7 @@ sub associate_case_with_result {
     }
 
     #Paginate the query, TODO short-circuit when we stop getting results?
-    my $offset = 0;
-    my $hits = [];
-    my $hitcounter=$max_query_size;
-    while ( $hitcounter == $max_query_size ) {
-        $q{size} = $max_query_size;
-        $q{from} = ( $max_query_size * $offset );
-        my $res = $e->search(%q);
-        push( @$hits, @{$res->{hits}->{hits}} );
-        $hitcounter = scalar(@{$res->{hits}->{hits}});
-        $offset++;
-    }
-
+    my $hits = App::Prove::Elasticsearch::Utils::do_paginated_query($e,$max_query_size,%q);
     return 0 unless scalar(@$hits);
 
     #Now, update w/ the defect.

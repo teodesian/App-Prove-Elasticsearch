@@ -18,6 +18,8 @@ main() unless caller();
 
 testd
 
+Requires that you have a configured autodiscover value in your ~/elastest.conf.
+
 =head1 SUBROUTINES
 
 =head2 main
@@ -27,6 +29,9 @@ Runs the program and parses arguments.
 =cut
 
 sub main {
+
+	my $conf = App::Prove::Elasticsearch::Utils::process_configuration();
+
 	my $pid = daemonify() or die "Could not daemonify";
 	print "Spawned as PID $pid\n";
 

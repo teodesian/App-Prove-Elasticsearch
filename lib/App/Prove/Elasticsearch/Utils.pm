@@ -72,6 +72,25 @@ sub require_indexer {
     return $indexer;
 }
 
+=head2 require_searcher($conf)
+
+Require the needed searcher implied by the configuration passed.
+Set the ENV var CLIENT_AUTODISCOVER for use by parser, etc.
+
+Will die unless you have autodiscover= set in your configuration, as there is no default searcher.
+
+=cut
+
+sub require_searcher {
+    my $conf = shift;
+    return _require_generic(
+        $conf,
+        'App::Prove::Elasticsearch::Searcher',
+        'client.searcher',
+        'CLIENT_AUTODISCOVER'
+    );
+}
+
 =head2 require_planner($conf)
 
 Require the needed planner implied by the configuration passed.
@@ -136,6 +155,13 @@ sub _require_generic {
     return $module
 }
 
+=head2 ES convenience methods
+
+These are used directly in some indexer & planner subs.
+Thankfully, those are required dynamically, so reliance on these shouldn't break plugin compatibility.
+
+=cut
+
 =head2 get_last_index
 
 Ask ES for the last index it has on hand, so we can then add some new records.
@@ -166,6 +192,30 @@ sub get_last_index {
     return 0 unless scalar(@$hits);
 
     return $res->{hits}->{total};
+}
+
+=head2 do_paginated_query
+
+Do an elasticsearch paginated query.
+
+Arguments are ES handle, max query results and the query to paginate (HASH).
+
+=cut
+
+sub do_paginated_query {
+	my ($e,$max_query_size,%q) = @_;
+    my $offset = 0;
+    my $hits = [];
+    my $hitcounter=$max_query_size;
+    while ( $hitcounter == $max_query_size ) {
+        $q{size} = $max_query_size;
+        $q{from} = ( $max_query_size * $offset );
+        my $res = $e->search(%q);
+        push( @$hits, @{$res->{hits}->{hits}} );
+        $hitcounter = scalar(@{$res->{hits}->{hits}});
+        $offset++;
+    }
+	return $hits;
 }
 
 1;

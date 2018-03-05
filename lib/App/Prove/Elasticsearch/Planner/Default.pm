@@ -116,7 +116,7 @@ All methods below die if the ES handle hasn't been defined by check_index.
 
 =head2 get_plan
 
-Get a plan matching the description from Elasticsearch.
+Get the plan most closely matching the description from Elasticsearch.
 
 =cut
 
@@ -137,6 +137,7 @@ sub get_plan {
                     ],
                 },
             },
+			size => 1,
         },
     );
 
@@ -196,7 +197,7 @@ sub get_plans {
     foreach my $plat (@{$options{platforms}}) {
         push(@{$q{body}{query}{bool}{must}}, { match => { platforms => $plat } } );    }
 
-    return $e->search(%q);
+    return App::Prove::Elasticsearch::Utils::do_paginated_query($e,$max_query_size,%q);
 }
 
 sub get_plans_needing_work {
@@ -204,6 +205,8 @@ sub get_plans_needing_work {
     my $docs = get_plans(%options);
 
 	#TODO
+	use Data::Dumper;
+	die Dumper($docs);
 }
 
 =head2 add_plan_to_index($plan)
