@@ -32,11 +32,11 @@ sub main {
 
 	my $conf = App::Prove::Elasticsearch::Utils::process_configuration();
 
-	my $pid = daemonify() or die "Could not daemonify";
+	my $pid = daemonify() or die "Could not daemonize";
 	print "Spawned as PID $pid\n";
 
     my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
-    my $q = &{ \&{$platformer . "->new"} }();
+    my $q = &{ \&{$queue . "->new"} }();
 
 	my $jobspec = {};
 	my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($conf);
@@ -76,7 +76,7 @@ sub daemonify {
         exit 1 if not defined $pid;
         chdir '/' or die $!;
         umask 0;
-
+		$pid = $$;
     }
     return $pid;
 }
