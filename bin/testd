@@ -36,7 +36,7 @@ sub main {
 	print "Spawned as PID $pid\n";
 
     my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
-    my $q = &{ \&{$queue . "->new"} }();
+    my $q = &{ \&{$queue . "::new"} }($queue);
 
 	my $jobspec = {};
 	my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($conf);

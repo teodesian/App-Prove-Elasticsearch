@@ -1,12 +1,10 @@
-package App::Prove::Elasticsearch::Queue::Rabbit;
+package App::Prove::Elasticsearch::Queue::Default;
 
-# PODNAME: App::Prove::Elasticsearch::Queue::Rabbit;
-# ABSTRACT: Coordinate the running of test plans across multiple instances via RabbitMQ.
+# PODNAME: App::Prove::Elasticsearch::Queue::Default;
+# ABSTRACT: Coordinate the running of test plans across multiple forks.
 
 use strict;
 use warnings;
-
-use parent App::Prove::Elasticsearch::Queue::Default;
 
 use List::Util qw{shuffle uniq};
 use App::Prove::Elasticsearch::Utils;
@@ -34,7 +32,7 @@ Subclasses likely will do more with this, such as advertise their availablilty t
 
 sub new {
     my ($class,$input) = @_;
-    my $conf = process_configuration($input);
+    my $conf = App::Prove::Elasticsearch::Utils::process_configuration($input);
 
     my $planner = App::Prove::Elasticsearch::Utils::require_planner($conf);
     &{ \&{$planner . "::check_index"} }($conf);

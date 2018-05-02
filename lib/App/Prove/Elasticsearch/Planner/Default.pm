@@ -13,9 +13,27 @@ use File::Basename();
 use Cwd();
 use List::Util qw{uniq};
 
+=head1 VARIABLES
+
+=head2 index (STRING)
+
+The name of the elasticsearch index used.
+If you are subclassing this, be aware that the Searcher plugin will rely on this.
+
+=cut
+
 our $index = 'testplans';
 our $e; # for caching
 our $last_id;
+
+=head2 max_query_size
+
+Number of items returned by queries.
+Defaults to 1000.
+
+=cut
+
+our $max_query_size = 1000;
 
 =head1 CONSTRUCTOR
 
