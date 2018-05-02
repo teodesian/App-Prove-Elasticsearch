@@ -37,7 +37,7 @@ sub new {
     my $planner = App::Prove::Elasticsearch::Utils::require_planner($conf);
     &{ \&{$planner . "::check_index"} }($conf);
 
-    return bless( $class, { config => process_configuration($input), planner => $planner } );
+    return bless( { config => $conf, planner => $planner }, $class );
 }
 
 =head1 METHODS

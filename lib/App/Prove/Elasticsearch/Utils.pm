@@ -142,6 +142,25 @@ sub require_queue {
     );
 }
 
+
+=head2 require_versioner($conf)
+
+Require the needed versioner module implied by the configuration passed
+Sets the ENV var CLIENT_VERSIONER for use by parser, etc
+
+=cut
+
+sub require_versioner {
+    my $conf = shift;
+    return _require_generic(
+        $conf,
+        'App::Prove::Elasticsearch::Versioner',
+        'client.versioner',
+        'CLIENT_VERSIONER'
+    );
+}
+
+
 sub _require_generic {
     my ($conf,$prefix,$suffix_key,$envvar) = @_;
     my $suffix = $conf->{$suffix_key} // 'Default';

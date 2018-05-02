@@ -25,7 +25,7 @@ sub get_version {
 
     return $version->{$loc} if $version->{$loc};
     my $ret;
-    open(my $fh, '<', $loc) or die "Could not open Changes";
+    open(my $fh, '<', $loc) or die "Could not open Changes in $loc";
     while (<$fh>) {
         ($ret) = $_ =~ m/(^\S*)/;
         last if $ret;

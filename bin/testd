@@ -32,8 +32,8 @@ sub main {
 
 	my $conf = App::Prove::Elasticsearch::Utils::process_configuration();
 
-	my $pid = daemonify() or die "Could not daemonize";
-	print "Spawned as PID $pid\n";
+	#my $pid = daemonify() or die "Could not daemonize";
+	#print "Spawned as PID $pid\n";
 
     my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
     my $q = &{ \&{$queue . "::new"} }($queue);
@@ -43,7 +43,7 @@ sub main {
 	$jobspec->{platforms} = &{ \&{$platformer . "::get_platforms"} }();
 
 	my $versioner = App::Prove::Elasticsearch::Utils::require_versioner($conf);
-	$jobspec->{version} = &{ \&{$versioner . "::get_version"} }();
+	$jobspec->{version} = &{ \&{$versioner . "::get_version"} }("$ENV{PWD}/t/bogus.t"); #XXX this will cause trouble with other versioners, I'm sure
 
 	$jobspec->{queue_name} = $q->build_queue_name($jobspec);
 
