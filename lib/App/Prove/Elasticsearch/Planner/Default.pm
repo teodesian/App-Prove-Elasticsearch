@@ -308,7 +308,7 @@ sub make_plan {
     die "check_index not run, ES object not defined!" unless $e;
 
     my %out = %options;
-    $out{pairwise} = $out{pairwise} ? "True" : "False";
+    $out{pairwise} = $out{pairwise} ? "true" : "false";
     delete $out{show};
     delete $out{prompt};
     delete $out{allplatforms};
