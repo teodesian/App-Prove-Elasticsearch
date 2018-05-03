@@ -189,7 +189,7 @@ sub main {
     my @plans = _build_plans($planner,$conf,\@args,%options);
 
     my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
-    my $q = &{ \&{$platformer . "->new"} }();
+    my $q = &{ \&{$queue . "->new"} }();
 
     my $global_result = 0;
     my $queue_result  = 0;
