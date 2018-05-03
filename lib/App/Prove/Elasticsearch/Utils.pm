@@ -86,7 +86,7 @@ sub require_searcher {
     return _require_generic(
         $conf,
         'App::Prove::Elasticsearch::Searcher',
-        'client.searcher',
+        'client.autodiscover',
         'CLIENT_AUTODISCOVER'
     );
 }
