@@ -38,12 +38,29 @@ sub main {
     my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
     my $q = &{ \&{$queue . "::new"} }($queue);
 
+    foreach my $w (1..$conf->{max_worker}) {
+        #TODO provision SUTs if needed, fork
+        worker($conf,$queue);
+    }
+
+}
+
+=head2 worker($conf,$queue)
+
+The worker process, which will grab some jobs and then run them.
+The caller should fork before executing this.
+
+=cut
+
+sub worker {
+    my ($conf,$queue) = @_;
+
 	my $jobspec = {};
 	my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($conf);
 	$jobspec->{platforms} = &{ \&{$platformer . "::get_platforms"} }();
 
 	my $versioner = App::Prove::Elasticsearch::Utils::require_versioner($conf);
-	$jobspec->{version} = &{ \&{$versioner . "::get_version"} }("$ENV{PWD}/t/bogus.t"); #XXX this will cause trouble with other versioners, I'm sure
+	$jobspec->{version} = &{ \&{$versioner . "::get_version"} }("$ENV{PWD}/t/bogus.t"); #XXX this will cause trouble with other versioners & planners, I'm sure
 
 	$jobspec->{queue_name} = $q->build_queue_name($jobspec);
 
@@ -51,6 +68,7 @@ sub main {
 		my @jobs = $q->get_jobs($jobspec);
 		use Data::Dumper;
 		die Dumper(\@jobs);
+        #TODO make a runner class and run this stuff
 	}
 }
 

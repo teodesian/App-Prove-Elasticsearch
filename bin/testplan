@@ -51,6 +51,8 @@ In the event that a plan update is made, tests will be properly apportioned upon
 
 --extension - If passing directories, check for tests with these extensions.  May be passed multiple times, defaults to t
 
+--requeue - Re-queue an existing plan, in case something didn't quite work out.  Use to suppress prompts about re-queueing in --prompt mode.
+
 =head1 CONFIGURATION
 
 Aside from the usual configuration from L<App::Prove::Plugin::Elasticsearch>,
@@ -137,6 +139,7 @@ sub main {
         'recurse'       => \$options{recurse},
         'extension=s@'  => \$options{exts},
         'name'          => \$options{name},
+        'requeue'       => \$options{requeue},
         'help'          => \$help,
     );
     $options{platforms} //= [];
@@ -204,11 +207,13 @@ sub main {
             if (!$plan->{noop}) {
                 prompt( "Do you want to enact the above changes?" ) or next;
             } else {
+                ( prompt( "Do you want to re-queue the plan?" ) or next ) unless $options{requeue};
+                $queue_result  += $q->queue_jobs($plan);
                 next;
             }
         }
         $global_result += &{ \&{$planner . "::add_plan_to_index"} }($plan);
-        $queue_result  += $q->queue_jobs($plan);
+        $queue_result  += $q->queue_jobs($plan) if !$plan->{noop} || $options{requeue};
     }
     print "$global_result plans failed to be created, examine above output\n" if $global_result;
     print "$queue_result plans failed to be queued, examine above output\n"   if $queue_result;
@@ -333,6 +338,8 @@ sub _print_plan {
     my ($plan,$force) = @_;
     if (!$plan->{noop} || $force) {
         require Data::Dumper;
+        print "Plan already exists:\n";
+        print "=========================\n";
         print Data::Dumper::Dumper($plan);
     } else {
         print "Plan already exists, and no updates will be made.\n";

@@ -91,6 +91,7 @@ Should return the number of jobs that failed to queue.
 =cut
 
 sub queue_jobs {
+    print "Queued local job.\n";
     return 0;
 }
 
