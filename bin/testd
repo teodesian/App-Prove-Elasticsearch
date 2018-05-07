@@ -48,9 +48,9 @@ sub main {
 	$jobspec->{queue_name} = $q->build_queue_name($jobspec);
 
 	while (1) {
-		my $jobs = $q->get_jobs($jobspec);
+		my @jobs = $q->get_jobs($jobspec);
 		use Data::Dumper;
-		die Dumper($jobs);
+		die Dumper(\@jobs);
 	}
 }
 

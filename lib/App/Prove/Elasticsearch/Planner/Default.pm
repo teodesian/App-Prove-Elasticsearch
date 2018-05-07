@@ -256,8 +256,7 @@ sub get_plans_needing_work {
         $doc->{_source}->{tests} = \@tests;
         push(@plans,$doc->{_source}) if @tests;
     }
-    use Data::Dumper;
-    die Dumper(\@plans);
+    return \@plans;
 }
 
 =head2 add_plan_to_index($plan)

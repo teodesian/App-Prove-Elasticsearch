@@ -72,7 +72,8 @@ sub get_jobs {
 
 	my @tests;
 	foreach my $plan (@$plans) {
-        my @tests = ref $plan->{tests} eq 'ARRAY' ? @{$plan->{tests}} : ($plan->{tests});
+        my @tmp_tests = ref $plan->{tests} eq 'ARRAY' ? @{$plan->{tests}} : ($plan->{tests});
+        push(@tests,@tmp_tests);
 	}
 	@tests = shuffle($self->{searcher}->filter(uniq @tests));
     return @tests unless $self->{conf}->{'queue.granularity'};
