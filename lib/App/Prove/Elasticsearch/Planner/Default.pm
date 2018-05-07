@@ -13,6 +13,12 @@ use File::Basename();
 use Cwd();
 use List::Util qw{uniq};
 
+=head1 SUBCLASSING
+
+The most useful reason to subclass the planner is to tell the system where to find named tests stored in a plan.
+For a variety of good reasons, we do not store paths to tests in plans.
+You are expected to alter find_test_paths() to suit your needs if the default behavior (search t/) is insufficient.
+
 =head1 VARIABLES
 
 =head2 index (STRING)
@@ -132,6 +138,20 @@ sub check_index {
 
 All methods below die if the ES handle hasn't been defined by check_index.
 
+=head2 find_test_paths(@tests)
+
+Resolves the paths to your tests.  By default this is the t/ directory under your current directory.
+See SUBCLASSING for more information.
+
+Returns ARRAY
+
+=cut
+
+sub find_test_paths {
+    my (@tests) = @_;
+    return map { "t/$_" } @tests;
+}
+
 =head2 get_plan
 
 Get the plan most closely matching the description from Elasticsearch.
@@ -220,11 +240,24 @@ sub get_plans {
 
 sub get_plans_needing_work {
     my (%options) = @_;
-    my $docs = get_plans(%options);
 
-	#TODO
-	use Data::Dumper;
-	die Dumper($docs);
+    die "Can't find plans needing work without case autodiscover configured!" unless $options{searcher};
+    
+    my @plans;
+    my $docs  = get_plans(%options);
+    return () unless ref $docs eq 'ARRAY' && scalar(@$docs);
+
+    foreach my $doc (@$docs) {
+        next unless ref $doc->{_source}->{tests} eq 'ARRAY' && scalar(@{$doc->{_source}->{tests}});
+
+        #TODO filter out plans which don't match our platform?  or is that handled by get_plans...
+
+        my @tests = $options{searcher}->filter(find_test_paths(@{$doc->{_source}->{tests}}));
+        $doc->{_source}->{tests} = \@tests;
+        push(@plans,$doc->{_source}) if @tests;
+    }
+    use Data::Dumper;
+    die Dumper(\@plans);
 }
 
 =head2 add_plan_to_index($plan)

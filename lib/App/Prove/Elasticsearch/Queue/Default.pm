@@ -58,6 +58,7 @@ sub get_jobs {
 
     my $searcher = App::Prove::Elasticsearch::Utils::require_searcher($self->{config});
     $self->{searcher} = &{ \&{$searcher . "::new"} }(
+        $searcher,
 		$self->{config}->{'server.host'},
 		$self->{config}->{'server.port'},
 		$self->{indexer}->index,
@@ -65,6 +66,7 @@ sub get_jobs {
 		$self->{config}->{'client.platformer'},
 	);
 
+    $jobspec->{searcher} = $self->{searcher};
     my $plans = &{ \&{$self->{planner} . "::get_plans_needing_work"} }(%$jobspec);
     return () unless scalar(@$plans);
 
