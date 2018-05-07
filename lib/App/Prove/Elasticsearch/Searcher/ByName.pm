@@ -88,7 +88,10 @@ sub filter {
         my $docs = $self->{handle}->search(%q);
 
         #OK, check if this document we got back *actually* matched
-        next unless scalar(@{$docs->{hits}->{hits}});
+        if (!scalar(@{$docs->{hits}->{hits}}) ) {
+            push(@tests_filtered,$test);
+            next;
+        }
         my $match = $docs->{hits}->{hits}->[0]->{_source};
 
         my @plats_match = ((ref($match->{platform}) eq 'ARRAY') ? @{$match->{platform}}: ($match->{platform}));
