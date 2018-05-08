@@ -97,18 +97,14 @@ sub get_jobs {
     $self->{mq}->channel_open(2);
 
     #TODO build queue_name?
-
-    my $job;
     $self->{mq}->queue_bind( 2, $jobspec->{queue_name}, $self->{config}->{'queue.exchange'}, $jobspec->{queue_name});
     $self->{mq}->consume(2,$jobspec->{queue_name});
-    $job = $self->{mq}->get(2,$jobspec->{queue_name});
-    use Data::Dumper;
-    print Dumper($job);
+    #TODO alarm in case this hangs
+    my $job = $self->{mq}->recv();
     #I don't think I will have to check that the platform is right & reject/requeue thanks to using multiple queues.
-    $self->{mq}->ack($job->{delivery_tag}) if $job;
-
     $self->{mq}->disconnect();
-    return $job;
+    return decode_json($job->{body}) if $job->{body};
+    return;
 }
 
 1;
