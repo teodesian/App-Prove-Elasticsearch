@@ -192,7 +192,7 @@ sub main {
     my @plans = _build_plans($planner,$conf,\@args,%options);
 
     my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
-    my $q = &{ \&{$queue . "::new"} }($queue);
+    my $q = &{ \&{$queue . "::new"} }($queue,\@conf);
 
     my $global_result = 0;
     my $queue_result  = 0;

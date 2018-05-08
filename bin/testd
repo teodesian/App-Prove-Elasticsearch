@@ -37,10 +37,11 @@ sub main {
 
     my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
     my $q = &{ \&{$queue . "::new"} }($queue);
+    $conf->{'testd.max_workers'} ||= 1;
 
-    foreach my $w (1..$conf->{max_worker}) {
+    foreach my $w (1..$conf->{'testd.max_workers'}) {
         #TODO provision SUTs if needed, fork
-        worker($conf,$queue);
+        worker($conf,$q);
     }
 
 }
@@ -53,7 +54,7 @@ The caller should fork before executing this.
 =cut
 
 sub worker {
-    my ($conf,$queue) = @_;
+    my ($conf,$q) = @_;
 
 	my $jobspec = {};
 	my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($conf);
