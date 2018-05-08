@@ -63,15 +63,18 @@ sub queue_jobs {
     $self->{mq}->channel_open(1);
 
     my $errno = 0;
-    my $options = $self->{config}->{exchange} ? { exchange => $self->{config}->{'queue.exchange'}} : undef;
+    my $options = $self->{config}->{'queue.exchange'} ? { exchange => $self->{config}->{'queue.exchange'}} : undef;
     foreach my $job (@jobs_to_queue) {
         $job->{queue_name} = "$job->{version}".join('',@{$job->{platforms}});
         #Publish each plan to it's own queue, and the name of this queue that needs work to the 'queues needing work' queue
         $self->{mq}->exchange_declare( 1, $self->{config}->{'queue.exchange'}, { auto_delete => 0, });
         $self->{mq}->queue_declare(1,$job->{queue_name}, { auto_delete => 0 });
-        $self->{mq}->queue_bind(1, $job->{queue_name}, $self->{config}->{'queue.exchange'}, 'tests');
+        $self->{mq}->queue_bind(1, $job->{queue_name}, $self->{config}->{'queue.exchange'}, $job->{queue_name});
         #queue a test to a queue for the same version/platform/etc
-        $self->{mq}->publish(1,$job->{queue_name},encode_json($job), $options );
+        my $job_encoded = encode_json($job);
+        use Data::Dumper;
+        print Dumper($options);
+        $self->{mq}->publish(1,$job->{queue_name}, $job_encoded, $options );
         #Clients that wish to re-build to suit other jobs will have to query ES as to what other types of plans are available
         #This will result in the occasional situation where we rebuild, but work for the new queue has been exhausted by the time the worker gets there.
     }
@@ -96,16 +99,13 @@ sub get_jobs {
     #TODO build queue_name?
 
     my $job;
-    eval {
-        $self->{mq}->queue_bind( 2, $jobspec->{queue_name}, $self->{config}->{'queue.exchange'}, 'tests');
-        $self->{mq}->consume(2,$jobspec->{queue_name});
-        $job = $self->{mq}->get(2,$jobspec->{queue_name});
-        #I don't think I will have to check that the platform is right & reject/requeue thanks to using multiple queues.
-        $self->{mq}->ack($job->{delivery_tag}) if $job;
-    };
-    if ($@) {
-        print "[WARN] Failed to get job, moving on: $@...\n";
-    }
+    $self->{mq}->queue_bind( 2, $jobspec->{queue_name}, $self->{config}->{'queue.exchange'}, $jobspec->{queue_name});
+    $self->{mq}->consume(2,$jobspec->{queue_name});
+    $job = $self->{mq}->get(2,$jobspec->{queue_name});
+    use Data::Dumper;
+    print Dumper($job);
+    #I don't think I will have to check that the platform is right & reject/requeue thanks to using multiple queues.
+    $self->{mq}->ack($job->{delivery_tag}) if $job;
 
     $self->{mq}->disconnect();
     return $job;
