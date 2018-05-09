@@ -76,8 +76,8 @@ sub get_jobs {
         push(@tests,@tmp_tests);
 	}
 	@tests = shuffle($self->{searcher}->filter(uniq @tests));
-    return @tests unless $self->{conf}->{'queue.granularity'};
-	@tests = splice(@tests,0,$self->{conf}->{'queue.granularity'});
+    return @tests unless $self->{config}->{'queue.granularity'};
+	@tests = splice(@tests,0,$self->{config}->{'queue.granularity'});
 	return @tests;
 }
 

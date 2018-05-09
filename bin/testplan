@@ -193,6 +193,7 @@ sub main {
 
     my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
     my $q = &{ \&{$queue . "::new"} }($queue,\@conf);
+    $q->{requeue} = $options{requeue};
 
     my $global_result = 0;
     my $queue_result  = 0;
@@ -208,6 +209,7 @@ sub main {
                 prompt( "Do you want to enact the above changes?" ) or next;
             } else {
                 ( prompt( "Do you want to re-queue the plan?" ) or next ) unless $options{requeue};
+                $q->{requeue} = 1;
                 $queue_result  += $q->queue_jobs($plan);
                 next;
             }

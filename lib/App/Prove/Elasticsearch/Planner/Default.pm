@@ -249,9 +249,6 @@ sub get_plans_needing_work {
 
     foreach my $doc (@$docs) {
         next unless ref $doc->{_source}->{tests} eq 'ARRAY' && scalar(@{$doc->{_source}->{tests}});
-
-        #TODO filter out plans which don't match our platform?  or is that handled by get_plans...
-
         my @tests = $options{searcher}->filter(find_test_paths(@{$doc->{_source}->{tests}}));
         $doc->{_source}->{tests} = \@tests;
         push(@plans,$doc->{_source}) if @tests;
