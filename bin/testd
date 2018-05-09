@@ -11,6 +11,10 @@ use warnings;
 use POSIX qw{setsid};
 
 use App::Prove::Elasticsearch::Utils;
+use MCE::Loop;
+use MCE::Signal qw(-setpgrp);
+
+our $interval = 30;
 
 main() unless caller();
 
@@ -39,11 +43,16 @@ sub main {
     my $q = &{ \&{$queue . "::new"} }($queue);
     $conf->{'testd.max_workers'} ||= 1;
 
-    foreach my $w (1..$conf->{'testd.max_workers'}) {
-        #TODO provision SUTs if needed, fork
-        worker($conf,$q);
-    }
+    MCE::Loop::init {
+        max_workers => $conf->{'testd.max_workers'},
+        chunk_size  => 1,
+    };
 
+    my %ret = mce_loop {
+        my $tests = $_;
+        MCE->gather( worker($conf,$q) );
+    }
+    $tests_queue;
 }
 
 =head2 worker($conf,$queue)
@@ -55,6 +64,8 @@ The caller should fork before executing this.
 
 sub worker {
     my ($conf,$q) = @_;
+	my $msg = "testd - worker ".MCE->wid().":";
+	$0 = "$msg starting up";
 
 	my $jobspec = {};
 	my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($conf);
@@ -66,11 +77,18 @@ sub worker {
 	$jobspec->{queue_name} = $q->build_queue_name($jobspec);
 
 	while (1) {
+		$0 = "$msg looking for jobs";
 		my @jobs = $q->get_jobs($jobspec);
-		use Data::Dumper;
-		die Dumper(\@jobs);
-        #TODO make a runner class and run this stuff
+		if (!@jobs) {
+			$0 = "$msg waiting for jobs";
+			sleep $interval;
+			next;
+		}
+		$0 = "$msg running tests";
+	    my $runner = App::Prove::Elasticsearch::Utils::require_runner($conf);
+		&{ \&{$runner . "::run"} }($conf,@jobs);
 	}
+	return 0;
 }
 
 =head2 daemonify

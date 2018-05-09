@@ -128,7 +128,7 @@ sub require_platformer {
 =head2 require_queue($conf)
 
 Require the needed queue module implied by the configuration passed
-Sets the ENV var CLIENT_QUEUE for use by parser, etc
+Sets the ENV var CLIENT_QUEUE for use by testd & testplan, etc
 
 =cut
 
@@ -157,6 +157,23 @@ sub require_versioner {
         'App::Prove::Elasticsearch::Versioner',
         'client.versioner',
         'CLIENT_VERSIONER'
+    );
+}
+
+=head2 require_runner($conf)
+
+Require the needed runner module implied by the configuration passed
+Sets the ENV var CLIENT_RUNNER for use by testd, etc
+
+=cut
+
+sub require_runner {
+    my $conf = shift;
+    return _require_generic(
+        $conf,
+        'App::Prove::Elasticsearch::Runner',
+        'client.runner',
+        'CLIENT_RUNNER'
     );
 }
 
