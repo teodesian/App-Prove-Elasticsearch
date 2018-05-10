@@ -13,6 +13,7 @@ use POSIX qw{setsid};
 use App::Prove::Elasticsearch::Utils;
 use MCE::Loop;
 use MCE::Signal qw(-setpgrp);
+use MCE::Shared;
 
 our $interval = 30;
 
@@ -23,6 +24,36 @@ main() unless caller();
 testd
 
 Requires that you have a configured autodiscover value in your ~/elastest.conf.
+
+When testd is finished running all the available tests for a given configuration,
+it would be inefficient to simply wait however long it takes for new jobs to come in.
+
+As such it accepts provisioner classes in your ~/elastest.conf, and will attempt to
+provision the machine to satisfy the jobs available. For example:
+
+	[client]
+	provisioner=Git,Perl
+	[provisioner]
+	branch=master
+
+Would tell testd it can:
+
+=over 4
+
+=item Pull to the latest version of code to satisfy test plans of versions that currently cannot be satisfied.
+
+=item Install and use a different version of perl via perlbrew to satisfy plans with platforms that cannot currently be satisfied.
+
+=back
+
+Similarly, it can run tests differently by providing a different runner class in your ~/elastest.conf:
+
+	[client]
+	runner=Karma
+	[runner]
+	args=-j2
+
+By default prove is used as the runner.
 
 =head1 SUBROUTINES
 
@@ -43,14 +74,72 @@ sub main {
     my $q = &{ \&{$queue . "::new"} }($queue);
     $conf->{'testd.max_workers'} ||= 1;
 
-    MCE::Loop::init {
-        max_workers => $conf->{'testd.max_workers'},
-        chunk_size  => 1,
-    };
+	my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($conf);
+	my $versioner = App::Prove::Elasticsearch::Utils::require_versioner($conf);
 
-    mce_loop {
-        worker($conf,$q);
-    } 1..$conf->{'testd.max_workers'};
+	my @provisioners = split(/,/,$conf->{'client.provisioners'}) if $conf->{'client.provisioners'};
+	@provisioners = map { App::Prove::Elasticsearch::Utils::require_provisioner($_) } @provisioners;
+
+	$0 = "testd - master: waiting for workers to finish";
+	while (1) {
+
+		my $jobspec = {};
+		$jobspec->{platforms} = &{ \&{$platformer . "::get_platforms"} }();
+		$jobspec->{version} = &{ \&{$versioner . "::get_version"} }("$ENV{PWD}/t/bogus.t"); #XXX this will cause trouble with other versioners & planners, I'm sure
+		$jobspec->{queue_name} = $q->build_queue_name($jobspec);
+
+		MCE::Shared->start();
+		my $worker_state = MCE::Shared->share({ module => 'MCE::Shared::Hash' },{});
+
+		MCE::Loop::init {
+			max_workers => $conf->{'testd.max_workers'},
+			chunk_size  => 1,
+		};
+
+		mce_loop {
+			worker($conf, $jobspec, $q);
+		} 1..$conf->{'testd.max_workers'};
+
+		$0 = "testd - master: attempting to provision to different test target";
+		try_to_provision(@provisioners);
+	}
+}
+
+=head2 try_to_provision(@provisioners)
+
+Figure out if there are any new jobs we can't currently satisfy,
+and then if we can provision to satisfy the job.
+
+Then actually do the provisioning.
+
+=cut
+
+sub try_to_provision {
+	my $candidate = _get_satisfiable_configuration(@_);
+	_provision($candidate);
+}
+
+sub _get_satisfiable_configuration {
+	my @provisioners = @_;
+
+	#Figure out what we *can* do
+	my %provision_matrix = ( version => 0, platforms => [] );
+	foreach my $p (@provisioners) {
+
+	}
+
+	#Figure out what needs doing
+
+	#Pick one and return it, preferrably whatever we already are.
+
+}
+
+sub _provision {
+	my ($candidate) = @_;
+
+	#Step 1.  Do nothing if we already are at this candidate.
+
+	#Step 2. Call relevant provisioner methods on all classes that have changed.
 }
 
 =head2 worker($conf,$queue)
@@ -61,23 +150,20 @@ The caller should fork before executing this.
 =cut
 
 sub worker {
-    my ($conf,$q) = @_;
+    my ($conf, $jobspec, $q) = @_;
+	$worker_state->{MCE->wid()} = 1;
 	my $msg = "testd - worker ".MCE->wid().":";
 	$0 = "$msg starting up";
 
-	my $jobspec = {};
-	my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($conf);
-	$jobspec->{platforms} = &{ \&{$platformer . "::get_platforms"} }();
-
-	my $versioner = App::Prove::Elasticsearch::Utils::require_versioner($conf);
-	$jobspec->{version} = &{ \&{$versioner . "::get_version"} }("$ENV{PWD}/t/bogus.t"); #XXX this will cause trouble with other versioners & planners, I'm sure
-
-	$jobspec->{queue_name} = $q->build_queue_name($jobspec);
-
 	while (1) {
+		#check if every job is not busy, and if so, return so we can re-provision.
+		return 1 unless sum(values(%$worker_state));
+
+		$worker_state->{MCE->wid()} = 1;
 		$0 = "$msg looking for jobs";
 		my @jobs = $q->get_jobs($jobspec);
 		if (!@jobs) {
+			$worker_state->{MCE->wid()} = 0;
 			$0 = "$msg waiting for jobs";
 			sleep $interval;
 			next;
@@ -86,7 +172,6 @@ sub worker {
 	    my $runner = App::Prove::Elasticsearch::Utils::require_runner($conf);
 		&{ \&{$runner . "::run"} }($conf,@jobs);
 	}
-	return 0;
 }
 
 =head2 daemonify

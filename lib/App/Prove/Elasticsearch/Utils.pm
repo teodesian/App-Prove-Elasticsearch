@@ -177,6 +177,27 @@ sub require_runner {
     );
 }
 
+=head2 require_provisioner($module)
+
+Require the needed runner module provided.
+Sets the ENV var CLIENT_PROVISIONERS for use by testd, etc
+
+=cut
+
+sub require_provisioner {
+    my $module = shift;
+	my $module_full = "App::Prove::Elasticsearch::Provisioner::$module";
+    eval "require $module_full";
+    die $@ if $@;
+
+    #Set ENV for use by harness
+	if ($ENV{CLIENT_PROVISIONERS}) {
+		$ENV{CLIENT_PROVISIONERS} .= ":$module_full";
+	} else {
+		$ENV{CLIENT_PROVISIONERS} = "$module_full";
+	}
+    return $module_full;
+}
 
 sub _require_generic {
     my ($conf,$prefix,$suffix_key,$envvar) = @_;
