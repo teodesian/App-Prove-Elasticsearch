@@ -48,11 +48,9 @@ sub main {
         chunk_size  => 1,
     };
 
-    my %ret = mce_loop {
-        my $tests = $_;
-        MCE->gather( worker($conf,$q) );
-    }
-    $tests_queue;
+    mce_loop {
+        worker($conf,$q);
+    } 1..$conf->{'testd.max_workers'};
 }
 
 =head2 worker($conf,$queue)

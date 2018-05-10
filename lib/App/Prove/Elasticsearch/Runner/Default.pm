@@ -34,8 +34,13 @@ For example, you can set the args= parameter like you would on the command line 
 sub run {
     my ($config,@tests) = @_;
 
+    my @args = ('-PElasticsearch');
+    push(@args,(split(/ /,$config->{'runner.args'}))) if $config->{'runner.args'};
+    push(@args,@tests);
     my $p = App::Prove->new();
-    $p->process_args(('-PElasticsearch',split(/ /,$config->{args}),@tests));
+    $p->process_args(@args);
+    use Data::Dumper;
+    die Dumper(\@args);
     return $p->run();
 }
 
