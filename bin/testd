@@ -14,8 +14,9 @@ use App::Prove::Elasticsearch::Utils;
 use MCE::Loop;
 use MCE::Signal qw(-setpgrp);
 use MCE::Shared;
+use List::Util qw{sum};
 
-our $interval = 30;
+our $interval = 5;
 
 main() unless caller();
 
@@ -75,9 +76,14 @@ sub main {
     $conf->{'testd.max_workers'} ||= 1;
 
 	my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($conf);
-	my $versioner = App::Prove::Elasticsearch::Utils::require_versioner($conf);
+	my $versioner  = App::Prove::Elasticsearch::Utils::require_versioner($conf);
 
-	my @provisioners = split(/,/,$conf->{'client.provisioners'}) if $conf->{'client.provisioners'};
+	my @provisioners;
+	if (ref $conf->{'client.provisioners'} eq 'ARRAY') {
+		@provisioners = @{$conf->{'client.provisioners'}} if ref $conf->{'client.provisioners'} eq 'ARRAY';
+	} else {
+		push(@provisioners,$conf->{'client.provisioners'}) if $conf->{'client.provisioners'};
+	}
 	@provisioners = map { App::Prove::Elasticsearch::Utils::require_provisioner($_) } @provisioners;
 
 	$0 = "testd - master: waiting for workers to finish";
@@ -89,7 +95,7 @@ sub main {
 		$jobspec->{queue_name} = $q->build_queue_name($jobspec);
 
 		MCE::Shared->start();
-		my $worker_state = MCE::Shared->share({ module => 'MCE::Shared::Hash' },{});
+		my $worker_state = MCE::Shared->share({ module => 'MCE::Shared::Hash' });
 
 		MCE::Loop::init {
 			max_workers => $conf->{'testd.max_workers'},
@@ -97,11 +103,11 @@ sub main {
 		};
 
 		mce_loop {
-			worker($conf, $jobspec, $q);
+			worker($conf, $worker_state, $jobspec, $q);
 		} 1..$conf->{'testd.max_workers'};
 
 		$0 = "testd - master: attempting to provision to different test target";
-		try_to_provision(@provisioners);
+		try_to_provision($versioner, $q, $jobspec->{platforms}, @provisioners);
 	}
 }
 
@@ -120,24 +126,36 @@ sub try_to_provision {
 }
 
 sub _get_satisfiable_configuration {
-	my @provisioners = @_;
+	my ($versioner,$queue,$platforms,@provisioners) = @_;
 
 	#Figure out what we *can* do
-	my %provision_matrix = ( version => 0, platforms => [] );
+	my %provision_matrix = (
+		version => 0,
+		platforms => {},
+		cur_platforms => {},
+		cur_version => &{ \&{$versioner . "::get_version"} }("$ENV{PWD}/t/bogus.t"),
+	);
 	foreach my $p (@provisioners) {
-
+		$provision_matrix{version} = $p if &{ \&{$p . "::can_switch_version"} }($versioner);
+		$provision_matrix{platforms}->{$p} = [];
+		my $platform;
+		($platform,$platforms) = &{ \&{$p . "::pick_platform"} }(@$platforms);
+		push(@{$provision_matrix{platforms}->{$p}}, &{ \&{$p . "::get_available_provision_targets"} }($platform) ) if $platform; #optimization
+		$provision_matrix{cur_platforms}{$p} = $platform;
 	}
+	$provision_matrix{unsatisfiable_platforms} = $platforms;
 
 	#Figure out what needs doing
+	my $satiable_plans = $queue->list_queues( %provision_matrix );
 
+	use Data::Dumper;
+	die Dumper($satiable_plans);
 	#Pick one and return it, preferrably whatever we already are.
 
 }
 
 sub _provision {
 	my ($candidate) = @_;
-
-	#Step 1.  Do nothing if we already are at this candidate.
 
 	#Step 2. Call relevant provisioner methods on all classes that have changed.
 }
@@ -150,13 +168,15 @@ The caller should fork before executing this.
 =cut
 
 sub worker {
-    my ($conf, $jobspec, $q) = @_;
+    my ($conf, $worker_state, $jobspec, $q) = @_;
 	$worker_state->{MCE->wid()} = 1;
 	my $msg = "testd - worker ".MCE->wid().":";
 	$0 = "$msg starting up";
 
 	while (1) {
 		#check if every job is not busy, and if so, return so we can re-provision.
+		use Data::Dumper;
+		MCE->say(Dumper($worker_state));
 		return 1 unless sum(values(%$worker_state));
 
 		$worker_state->{MCE->wid()} = 1;

@@ -8,37 +8,49 @@ use warnings;
 
 use App::perlbrew;
 use Perl::Version;
-
-=head1 RATIONALE
+use Capture::Tiny qw{capture_merged};
 
 =head1 SUBROUTINES
 
-=head2 get_available_provision_targets(current_version)
+=head2 get_available_provision_targets(current_value)
 
 Returns a list of platforms it is possible to provision using this module.
 In our case, this means the branches .
 
-Relies on perlbrew to work.
-
-Filters out your current version if passed.
-
-TODO Filter out perl versions inappropriate for your code automatically.
+Filters out your current branch if passed.
 
 =cut
 
 sub get_available_provision_targets {
     my ($cv) = @_;
-    my $pb = App::perlbrew->new('list');
-    my @perls = $pb->available_perls();
-    no warnings 'numeric';
-    @perls = grep {
-        my $v_sanitized = $_;
-        $v_sanitized =~ s/c?perl-?//g;
-        $v_sanitized =~ s/\.0/\./g; #remove leading zero from ancient perls
-        Perl::Version->new(sprintf("%.3f",$cv)) != Perl::Version->new(sprintf("%.2f",$v_sanitized))
-    } @perls if $cv;
-    use warnings;
-    return @perls;
+    my $branches = qx{git rev-parse --abbrev-ref --all};
+    my @bs = split(/\n/,$branches);
+    @bs = grep { $cv ne $_ } @bs if $cv;
+    return @bs;
+}
+
+=head2 pick_platform(@platforms)
+
+Pick out a platform from your list of platforms which can be provisioned.
+Returns the relevant platform, and an arrayref of platforms less the relevant one used.
+
+=cut
+
+sub pick_platform {
+    my (@plats) = @_;
+
+    my $plat;
+    foreach my $p (@plats) {
+        my @cmd = (qw{git reflog show}, $p);
+        my $rc = 0;
+        capture_merged { $rc = system(@cmd) };
+        if (!($rc >> 8)) {
+            $plat = $p;
+            @plats = grep { $_ ne $p } @plats;
+            last;
+        }
+    }
+    return $plat, \@plats;
 }
 
 =head2 can_switch_verison(versioner)

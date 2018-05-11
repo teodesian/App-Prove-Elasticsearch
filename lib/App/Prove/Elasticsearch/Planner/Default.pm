@@ -242,7 +242,7 @@ sub get_plans_needing_work {
     my (%options) = @_;
 
     die "Can't find plans needing work without case autodiscover configured!" unless $options{searcher};
-    
+
     my @plans;
     my $docs  = get_plans(%options);
     return () unless ref $docs eq 'ARRAY' && scalar(@$docs);

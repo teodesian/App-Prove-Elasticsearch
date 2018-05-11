@@ -81,6 +81,26 @@ sub get_jobs {
 	return @tests;
 }
 
+=head2 list_queues(%provision_options)
+
+List the existing queues of jobs available.
+
+=cut
+
+sub list_queues {
+	my ($self,%matrix) = @_;
+	my $pf = [];
+	@$pf = grep { defined $_ } values(%{$matrix{cur_platforms}});
+	push(@$pf,@{$matrix{unsatisfiable_platforms}});
+	my %jobspec = (
+		version => $matrix{cur_version},
+		platforms => $pf,
+	);
+	use Data::Dumper;
+	die Dumper(\%jobspec,\%matrix);
+    my $plans = &{ \&{$self->{planner} . "::get_plans_needing_work"} }(%jobspec);
+}
+
 =head2 queue_jobs
 
 Stub method.  Does nothing except in 'real' queue modules like Rabbit, etc.

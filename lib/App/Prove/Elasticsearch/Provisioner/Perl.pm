@@ -44,6 +44,26 @@ sub get_available_provision_targets {
     return @perls;
 }
 
+=head2 pick_platform(@platforms)
+
+Pick out a platform from your list of platforms which can be provisioned.
+Returns the relevant platform, and an arrayref of platforms less the relevant one used.
+
+=cut
+
+sub pick_platform {
+    my (@plats) = @_;
+
+    my $plat;
+    foreach my $p (@plats) {
+        if ($p =~ m/^perl/i) {
+            $plat = $p;
+            @plats = grep { $_ ne $p } @plats;
+            last;
+        }
+    }
+    return $plat, \@plats;
+}
 
 =head2 can_switch_verison(versioner)
 
