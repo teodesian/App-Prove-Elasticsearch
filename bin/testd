@@ -152,6 +152,7 @@ sub _get_satisfiable_configuration {
 	die Dumper($satiable_plans);
 	#Pick one and return it, preferrably whatever we already are.
 
+
 }
 
 sub _provision {

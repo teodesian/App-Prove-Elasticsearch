@@ -54,17 +54,7 @@ The idea here is that clients will run get_jobs in a loop (likely using several 
 sub get_jobs {
     my ($self,$jobspec) = @_;
 
-	$self->{indexer} //= App::Prove::Elasticsearch::Utils::require_indexer($self->{config});
-
-    my $searcher = App::Prove::Elasticsearch::Utils::require_searcher($self->{config});
-    $self->{searcher} = &{ \&{$searcher . "::new"} }(
-        $searcher,
-		$self->{config}->{'server.host'},
-		$self->{config}->{'server.port'},
-		$self->{indexer}->index,
-		$self->{config}->{'client.versioner'},
-		$self->{config}->{'client.platformer'},
-	);
+	$self->_get_searcher();
 
     $jobspec->{searcher} = $self->{searcher};
     my $plans = &{ \&{$self->{planner} . "::get_plans_needing_work"} }(%$jobspec);
@@ -81,6 +71,28 @@ sub get_jobs {
 	return @tests;
 }
 
+sub _get_indexer {
+	my $self = shift;
+	$self->{indexer} //= App::Prove::Elasticsearch::Utils::require_indexer($self->{config});
+	return $self->{indexer};
+}
+
+sub _get_searcher {
+	my $self = shift;
+	$self->_get_indexer();
+	return $self->{searcher} if $self->{searcher};
+    my $searcher = App::Prove::Elasticsearch::Utils::require_searcher($self->{config});
+    $self->{searcher} = &{ \&{$searcher . "::new"} }(
+        $searcher,
+		$self->{config}->{'server.host'},
+		$self->{config}->{'server.port'},
+		$self->{indexer}->index,
+		$self->{config}->{'client.versioner'},
+		$self->{config}->{'client.platformer'},
+	);
+	return $self->{searcher};
+}
+
 =head2 list_queues(%provision_options)
 
 List the existing queues of jobs available.
@@ -93,12 +105,54 @@ sub list_queues {
 	@$pf = grep { defined $_ } values(%{$matrix{cur_platforms}});
 	push(@$pf,@{$matrix{unsatisfiable_platforms}});
 	my %jobspec = (
-		version => $matrix{cur_version},
+		version   => $matrix{cur_version},
 		platforms => $pf,
+		searcher  => $self->_get_searcher(),
 	);
-	use Data::Dumper;
-	die Dumper(\%jobspec,\%matrix);
     my $plans = &{ \&{$self->{planner} . "::get_plans_needing_work"} }(%jobspec);
+$plans = [];
+	return @$plans if @$plans;
+
+	#construct iterator
+	my $num_combinations=1;
+	my @pigeonholes = map {
+		$matrix{platforms}{$_}
+	} grep { scalar(@{$matrix{platforms}{$_}}) } keys(%{$matrix{platforms}});
+
+	my @plots;
+	my @iterator = @{$pigeonholes[0]};
+	while (scalar(@iterator) ) {
+		my $subj = shift @iterator;
+
+		#Handle initial elements
+		$subj = [$subj] if ref $subj ne 'ARRAY';
+
+		#Break out of the loop if we have no more possibilities to exploit
+		if (scalar(@$subj) == scalar(@pigeonholes)) {
+			push(@plots, $subj);
+			next;
+		}
+
+		#Keep pushing partials on to the end of the iterator, until we run out of categories to add
+		foreach my $element (@{$pigeonholes[scalar(@$subj)]}) {
+			my @partial = @$subj;
+			push(@partial,$element);
+			push(@iterator,\@partial);
+		}
+	}
+	@plots = map { [@$_,@{$matrix{'unsatisfiable_platforms'}}] } @plots;
+
+	#OK, now I have a list of potential platforms I can ask whether they exist
+	foreach my $gambit (@plots) {
+		$jobspec{platforms} = $gambit;
+		$plans = &{ \&{$self->{planner} . "::get_plans_needing_work"} }(%jobspec);
+print "THIS SHOULD NOT WORK:\n";
+use Data::Dumper;
+die Dumper($plans,$jobspec{platforms});
+		return @$plans if @$plans;
+	}
+die "nuts";
+	return ();
 }
 
 =head2 queue_jobs
