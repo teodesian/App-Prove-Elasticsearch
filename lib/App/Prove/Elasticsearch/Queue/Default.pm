@@ -110,7 +110,6 @@ sub list_queues {
 		searcher  => $self->_get_searcher(),
 	);
     my $plans = &{ \&{$self->{planner} . "::get_plans_needing_work"} }(%jobspec);
-$plans = [];
 	return @$plans if @$plans;
 
 	#construct iterator
@@ -141,17 +140,12 @@ $plans = [];
 		}
 	}
 	@plots = map { [@$_,@{$matrix{'unsatisfiable_platforms'}}] } @plots;
-
 	#OK, now I have a list of potential platforms I can ask whether they exist
 	foreach my $gambit (@plots) {
 		$jobspec{platforms} = $gambit;
 		$plans = &{ \&{$self->{planner} . "::get_plans_needing_work"} }(%jobspec);
-print "THIS SHOULD NOT WORK:\n";
-use Data::Dumper;
-die Dumper($plans,$jobspec{platforms});
-		return @$plans if @$plans;
+		return @$plans if ( ref($plans) eq 'ARRAY' ) && @$plans;
 	}
-die "nuts";
 	return ();
 }
 

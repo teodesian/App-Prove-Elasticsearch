@@ -219,22 +219,20 @@ sub get_plans {
         index => $index,
         body  => {
             query => {
-                bool => {
-                    must => [
-                        {match => {
-                            version => $options{version},
-                        }},
-                    ],
+                query_string => {
+					query => qq{version: "$options{version}"},
                 },
             },
         },
     );
 
-    push(@{$q{body}{query}{bool}{must}}, { match => { name => $options{name} } } ) if $options{name};
+    $q{body}{query}{query_string}{query} .= qq{ AND name: "$options{name}" } if $options{name};
 
     foreach my $plat (@{$options{platforms}}) {
-        push(@{$q{body}{query}{bool}{must}}, { match => { platforms => $plat } } );    }
-
+        $q{body}{query}{query_string}{query} .= qq{ AND platforms: "$plat" };
+    }
+use Data::Dumper;
+print Dumper(\%q);
     return App::Prove::Elasticsearch::Utils::do_paginated_query($e,$max_query_size,%q);
 }
 

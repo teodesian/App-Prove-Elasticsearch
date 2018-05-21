@@ -146,11 +146,12 @@ sub _get_satisfiable_configuration {
 	$provision_matrix{unsatisfiable_platforms} = $platforms;
 
 	#Figure out what needs doing
-	my $satiable_plans = $queue->list_queues( %provision_matrix );
+	my @satiable_plans = $queue->list_queues( %provision_matrix );
 
 	use Data::Dumper;
-	die Dumper($satiable_plans);
-	#Pick one and return it, preferrably whatever we already are.
+	die Dumper(\@satiable_plans);
+
+	#Pick one and return it, after ensuring it's queued.
 
 
 }
