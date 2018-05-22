@@ -39,14 +39,21 @@ sub new {
     $self->{mq} = Net::RabbitMQ->new();
     $self->{config}->{'queue.exchange'} ||= 'testsuite';
 
+	#Allow callers to overwrite this to prevent double-usage of channels
+	$self->{write_channel} = 1;
+	$self->{read_channel} = 2;
+
     my $port = $self->{config}->{'queue.port'} ? ':'.$self->{config}->{'queue.port'} : '';
     die "server must be specified" unless $self->{config}->{'server.host'};
     my $serveraddress = "$self->{config}->{'queue.host'}$port";
-use Carp::Always;
 
     $self->{mq}->connect($serveraddress, { user => $self->{config}->{'queue.user'}, password => $self->{config}->{'queue.password'} });
     return $self;
 }
+
+=head1 CHANNELS
+
+To avoid channel overlap when doing parallelized execution, you should set the B<write_channel> and B<read_channel> parameters on this object to something unique.
 
 =head1 OVERRIDDEN METHODS
 
@@ -60,16 +67,16 @@ Returns the number of jobs that failed to queue.
 
 sub queue_jobs {
     my ($self,@jobs_to_queue) = @_;
-    $self->{mq}->channel_open(1);
+    $self->{mq}->channel_open($self->{write_channel});
 
     my $errno = 0;
     my $options = $self->{config}->{'queue.exchange'} ? { exchange => $self->{config}->{'queue.exchange'}} : undef;
     foreach my $job (@jobs_to_queue) {
         $job->{queue_name} = "$job->{version}".join('',@{$job->{platforms}});
         #Publish each plan to it's own queue, and the name of this queue that needs work to the 'queues needing work' queue
-        $self->{mq}->exchange_declare( 1, $self->{config}->{'queue.exchange'}, { auto_delete => 0, });
-        $self->{mq}->queue_declare(1,$job->{queue_name}, { auto_delete => 0 });
-        $self->{mq}->queue_bind(1, $job->{queue_name}, $self->{config}->{'queue.exchange'}, $job->{queue_name});
+        $self->{mq}->exchange_declare( $self->{write_channel}, $self->{config}->{'queue.exchange'}, { auto_delete => 0, });
+        $self->{mq}->queue_declare($self->{write_channel},$job->{queue_name}, { auto_delete => 0 });
+        $self->{mq}->queue_bind($self->{write_channel}, $job->{queue_name}, $self->{config}->{'queue.exchange'}, $job->{queue_name});
         #queue a test to a queue for the same version/platform/etc
 
         @{$job->{tests}} = &{ \&{$self->{planner} . "::find_test_paths"} }(@{$job->{tests}});
@@ -91,12 +98,13 @@ sub queue_jobs {
         }
 
         foreach my $test (@{$job->{tests}}) {
-            $self->{mq}->publish(1,$job->{queue_name}, $test, $options );
+            $self->{mq}->publish($self->{write_channel},$job->{queue_name}, $test, $options );
         }
 
         #Clients that wish to re-build to suit other jobs will have to query ES as to what other types of plans are available
         #This will result in the occasional situation where we rebuild, but work for the new queue has been exhausted by the time the worker gets there.
     }
+	$self->{mq}->channel_close($self->{write_channel});
     $self->{mq}->disconnect();
     return $errno;
 }
@@ -114,15 +122,16 @@ The queue will be considered exhausted if this returns undef.
 sub get_jobs {
     my ($self,$jobspec) = @_;
 
-    $self->{mq}->channel_open(2);
+    $self->{mq}->channel_open($self->{read_channel});
 
     #I don't think I will have to check that the platform is right & reject/requeue thanks to using multiple queues.
     my ($ctr,$job,@jobs);
-    while ($job = $self->{mq}->get(2,$jobspec->{queue_name}, { exchange => $self->{config}->{'queue.exchange'} })) {
+    while ($job = $self->{mq}->get($self->{read_channel},$jobspec->{queue_name}, { exchange => $self->{config}->{'queue.exchange'} })) {
         $ctr++;
         last if $self->{config}->{'queue.granularity'} && $ctr >= $self->{config}->{'queue.granularity'};
         push(@jobs,$job->{body}) if $job->{body};
     }
+	$self->{mq}->channel_close($self->{read_channel});
     $self->{mq}->disconnect();
 
     return @jobs;

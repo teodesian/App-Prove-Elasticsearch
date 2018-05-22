@@ -231,8 +231,6 @@ sub get_plans {
     foreach my $plat (@{$options{platforms}}) {
         $q{body}{query}{query_string}{query} .= qq{ AND platforms: "$plat" };
     }
-use Data::Dumper;
-print Dumper(\%q);
     return App::Prove::Elasticsearch::Utils::do_paginated_query($e,$max_query_size,%q);
 }
 

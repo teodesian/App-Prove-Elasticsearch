@@ -31,7 +31,7 @@ sub get_available_provision_targets {
 
 =head2 pick_platform(@platforms)
 
-Pick out a platform from your list of platforms which can be provisioned.
+Pick out a platform from your list of platforms which can be provisioned by this module.
 Returns the relevant platform, and an arrayref of platforms less the relevant one used.
 
 =cut
@@ -55,7 +55,8 @@ sub pick_platform {
 
 =head2 can_switch_verison(versioner)
 
-Returns whether the version can be changed via this provisioner given we use a compatible versioner.
+Returns whether the version can be changed via this provisioner given we use a compatible versioner,
+which in this case is App::Prove::Elasticsearch::Versioner::Git.
 
 =cut
 
@@ -79,16 +80,17 @@ sub switch_version_to {
 
 =head2 provision(desired,existing)
 
-Do all the necessary actions needed to provision the SUT into the passed platform.
+Do all the necessary actions needed to provision the SUT into the passed platform,
+which in this case is check out a branch.
 
 Example:
 
-    $provisioner::provision('Perl 5.006','Perl 5.004');
+    $provisioner::provision('beelzebub/7th_circle', 'origin/right_hand_of_the_father' );
 
 =cut
 
 sub provision {
-    my ($desired_platform,$existing_platform) = @_;
+    my ($desired_platform) = @_;
     #Move us into a detached HEAD at the desired remote/branch, or just the branch.
     #TODO do this right, verify remote/branch passed exists, etc.
     qx{git checkout $desired_platform};

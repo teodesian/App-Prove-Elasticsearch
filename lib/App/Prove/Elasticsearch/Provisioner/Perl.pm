@@ -97,7 +97,7 @@ Example:
 =cut
 
 sub provision {
-    my ($desired_platform,$existing_platform) = @_;
+    my ($desired_platform) = @_;
     my $pb = App::perlbrew->new('install');
     $pb->run_command_install($desired_platform);
     #This *should*? be enough magic to 'do the deed'

@@ -17,6 +17,7 @@ use MCE::Shared;
 use List::Util qw{sum};
 
 our $interval = 5;
+our $global_interval = 30;
 
 main() unless caller();
 
@@ -87,6 +88,8 @@ sub main {
 	@provisioners = map { App::Prove::Elasticsearch::Utils::require_provisioner($_) } @provisioners;
 
 	$0 = "testd - master: waiting for workers to finish";
+	print "Testd - starting up...\n";
+
 	while (1) {
 
 		my $jobspec = {};
@@ -103,11 +106,23 @@ sub main {
 		};
 
 		mce_loop {
-			worker($conf, $worker_state, $jobspec, $q);
+			#XXX Net::Rabbitmq is doing something incorrectly, requiring us to re-import every time we fork to avoid 'connection reset by peer'
+			my $q_f = &{ \&{$queue . "::new"} }($queue);
+
+			#Ensure we have no channel overlap with single-threaded things, like the write_channel, which testd does not use
+			$q->{read_channel} = 10 + MCE->wid();
+			MCE->say("Worker ".MCE->wid()." started, checking queue on channel $q->{read_channel}");
+			worker($conf, $worker_state, $jobspec, $q_f);
 		} 1..$conf->{'testd.max_workers'};
 
 		$0 = "testd - master: attempting to provision to different test target";
-		try_to_provision($versioner, $q, $jobspec->{platforms}, @provisioners);
+		print "All workers done.  Attempting to re-provision for new work...\n";
+		my $result = try_to_provision($versioner, $q, $jobspec->{platforms}, @provisioners);
+		if ($result) {
+			print "System provisioned to ".join(" ",@{$result->{platforms}})." with SUT version ".$result->{version}.", beginning work\n";
+			next;
+		}
+		print "No available test plans this system can provision to satisfy.  Waiting ".$global_interval."s for extra work...\n";
 	}
 }
 
@@ -121,8 +136,8 @@ Then actually do the provisioning.
 =cut
 
 sub try_to_provision {
-	my $candidate = _get_satisfiable_configuration(@_);
-	_provision($candidate);
+	my ($candidate,$provision_matrix) = _get_satisfiable_configuration(@_);
+	return _provision($candidate,$provision_matrix);
 }
 
 sub _get_satisfiable_configuration {
@@ -148,18 +163,30 @@ sub _get_satisfiable_configuration {
 	#Figure out what needs doing
 	my @satiable_plans = $queue->list_queues( %provision_matrix );
 
-	use Data::Dumper;
-	die Dumper(\@satiable_plans);
-
-	#Pick one and return it, after ensuring it's queued.
-
-
+	#Pick one and return it.  I'm deliberately not re-queuing, as that should be taken care of already, and would result in duplicate work in distributed configurations.
+	return (shift @satiable_plans,\%provision_matrix);
 }
 
 sub _provision {
-	my ($candidate) = @_;
+	my ($candidate,$provision_matrix) = @_;
 
-	#Step 2. Call relevant provisioner methods on all classes that have changed.
+	#First, let's provision everything we can to match the provided candidate.
+	foreach my $platformer (keys(%{$provision_matrix->{platforms}})) {
+		my ($platform_to_provision) = &{ \&{$platformer."::pick_platform"}}(@{$candidate->{platforms}});
+		next unless $platform_to_provision;
+		next if $platform_to_provision eq $provision_matrix->{cur_platforms}->{$platformer};
+		print "Provisioning system to $platform_to_provision...\n";
+		&{ \&{$platformer."::provision"}}($platform_to_provision);
+	}
+
+	#Finally, see if we need to change the version of our software.
+	if ($provision_matrix->{version}) {
+		if ($candidate->{version} ne $provision_matrix->{cur_version}) {
+			print "Provisioning SUT version to $candidate->{version}...\n";
+			&{ \&{$provision_matrix->{version}."::switch_version_to"} }($candidate->{version});
+		}
+	}
+	return $candidate;
 }
 
 =head2 worker($conf,$queue)
@@ -177,8 +204,6 @@ sub worker {
 
 	while (1) {
 		#check if every job is not busy, and if so, return so we can re-provision.
-		use Data::Dumper;
-		MCE->say(Dumper($worker_state));
 		return 1 unless sum(values(%$worker_state));
 
 		$worker_state->{MCE->wid()} = 1;
