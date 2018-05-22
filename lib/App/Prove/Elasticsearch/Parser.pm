@@ -72,10 +72,11 @@ sub new {
 
 sub _require_deps {
     my ($self,$esopts) = @_;
-    my $versioner  = "App::Prove::Elasticsearch::Versioner::".$esopts->{'client.versioner'};
+
+    my $versioner  = $esopts->{'client.versioner'};
     my $blamer     = "App::Prove::Elasticsearch::Blamer::".$esopts->{'client.blamer'};
     my $indexer    = $esopts->{'client.indexer'};
-    my $platformer = "App::Prove::Elasticsearch::Platformer::".$esopts->{'client.platformer'};
+    my $platformer = $esopts->{'client.platformer'};
     eval "require $versioner";
     die $@ if $@;
     eval "require $blamer";

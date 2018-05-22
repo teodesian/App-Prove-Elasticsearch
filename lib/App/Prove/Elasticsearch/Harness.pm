@@ -82,6 +82,7 @@ sub runtests {
 sub _filter_tests_with_results {
     my ($self,$searcher,@tests) = @_;
     my $indexer = $ENV{CLIENT_INDEXER};
+    print "$ENV{CLIENT_VERSIONER}\n";
     my $s = $searcher->new($ENV{SERVER_HOST},$ENV{SERVER_PORT},$indexer->index, $ENV{CLIENT_VERSIONER}, $ENV{CLIENT_PLATFORMER} );
     return $s->filter(@tests);
 }

@@ -138,8 +138,6 @@ sub _has_results {
 
 sub _require_deps {
     my ($versioner,$platformer) = @_;
-    $versioner  = "App::Prove::Elasticsearch::Versioner::".$versioner;
-    $platformer = "App::Prove::Elasticsearch::Platformer::".$platformer;
     eval "require $versioner";
     die $@ if $@;
     eval "require $platformer";

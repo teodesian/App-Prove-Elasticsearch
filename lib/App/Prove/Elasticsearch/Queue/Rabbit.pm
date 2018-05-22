@@ -85,15 +85,7 @@ sub queue_jobs {
         if ($self->{requeue}) {
             $self->{indexer} //= App::Prove::Elasticsearch::Utils::require_indexer($self->{config});
 
-            my $searcher = App::Prove::Elasticsearch::Utils::require_searcher($self->{config});
-            $self->{searcher} = &{ \&{$searcher . "::new"} }(
-                $searcher,
-                $self->{config}->{'server.host'},
-                $self->{config}->{'server.port'},
-                $self->{indexer}->index,
-                $self->{config}->{'client.versioner'},
-                $self->{config}->{'client.platformer'},
-            );
+            $self->{searcher} = $self->_get_searcher();
             @{$job->{tests}} = $self->{searcher}->filter(@{$job->{tests}});
         }
 

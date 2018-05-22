@@ -82,13 +82,17 @@ sub _get_searcher {
 	$self->_get_indexer();
 	return $self->{searcher} if $self->{searcher};
     my $searcher = App::Prove::Elasticsearch::Utils::require_searcher($self->{config});
+
+    $self->{config}->{'client.versioner'}  ||= 'Default';
+    $self->{config}->{'client.platformer'} ||= 'Default';
+
     $self->{searcher} = &{ \&{$searcher . "::new"} }(
         $searcher,
 		$self->{config}->{'server.host'},
 		$self->{config}->{'server.port'},
 		$self->{indexer}->index,
-		$self->{config}->{'client.versioner'},
-		$self->{config}->{'client.platformer'},
+	    "App::Prove::Elasticsearch::Versioner::".$self->{config}->{'client.versioner'},
+		"App::Prove::Elasticsearch::Platformer::".$self->{config}->{'client.platformer'},
 	);
 	return $self->{searcher};
 }

@@ -209,6 +209,7 @@ sub worker {
 		$worker_state->{MCE->wid()} = 1;
 		$0 = "$msg looking for jobs";
 		my @jobs = $q->get_jobs($jobspec);
+		MCE->say("Found ".scalar(@jobs)." jobs for worker ".MCE->wid());
 		if (!@jobs) {
 			$worker_state->{MCE->wid()} = 0;
 			$0 = "$msg waiting for jobs";

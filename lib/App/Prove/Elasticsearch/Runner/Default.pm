@@ -39,8 +39,6 @@ sub run {
     push(@args,@tests);
     my $p = App::Prove->new();
     $p->process_args(@args);
-    use Data::Dumper;
-    die Dumper(\@args);
     return $p->run();
 }
 
