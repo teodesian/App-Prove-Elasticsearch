@@ -8,6 +8,7 @@ use warnings;
 
 use Config::Simple();
 use File::HomeDir();
+use Carp::Always;
 
 =head1 FUNCTIONS
 
@@ -90,6 +91,24 @@ sub require_searcher {
         'CLIENT_AUTODISCOVER'
     );
 }
+
+=head2 require_blamer($conf)
+
+Require the needed searcher implied by the configuration passed.
+Set the ENV var CLIENT_BLAMER for use by parser, etc.
+
+=cut
+
+sub require_blamer {
+    my $conf = shift;
+    return _require_generic(
+        $conf,
+        'App::Prove::Elasticsearch::Blamer',
+        'client.blamer',
+        'CLIENT_BLAMER'
+    );
+}
+
 
 =head2 require_planner($conf)
 
@@ -208,7 +227,7 @@ sub _require_generic {
     die $@ if $@;
 
     #Set ENV for use by harness
-    $ENV{$envvar} = $module;
+    $ENV{$envvar} = $suffix;
     return $module
 }
 

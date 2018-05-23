@@ -5,13 +5,13 @@ package App::Prove::Elasticsearch::Parser;
 
 use strict;
 use warnings;
-use utf8;
 
 use parent qw/TAP::Parser/;
 
 use Clone qw{clone};
 use File::Basename qw{basename dirname};
 use POSIX qw{strftime};
+use App::Prove::Elasticsearch::Utils();
 
 =head1 SYNOPSIS
 
@@ -57,35 +57,21 @@ sub new {
         print "# PROCESSING RESULTS FROM TEST FILE: $self->{'file'}\n";
     }
 
-    #XXX maybe this could be done in the plugin and passed down? probably more efficient
-    my ($versioner,$blamer,$indexer,$platformer) = $self->_require_deps($esopts);
-    $self->{executor} = &{\&{$blamer."::get_responsible_party"}}($self->{file});
+    my $indexer = $esopts->{'client.indexer'};
+    eval "require $indexer" or die "cannot find needed indexer $indexer";
+    my $versioner  = App::Prove::Elasticsearch::Utils::require_versioner($esopts);
+    my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($esopts);
+    my $blamer     = App::Prove::Elasticsearch::Utils::require_blamer($esopts);
+
+    $self->{executor}     = &{\&{$blamer."::get_responsible_party"}}($self->{file});
     $self->{sut_version}  = &{\&{$versioner."::get_version"}}($self->{file});
-    $self->{platform} = &{\&{$platformer."::get_platforms"}}();
-    $self->{indexer}  = $indexer;
+    $self->{platform}     = &{\&{$platformer."::get_platforms"}}();
+    $self->{indexer}      = $indexer;
 
     $self->{steps}     = [];
     $self->{starttime} = [Time::HiRes::gettimeofday()];
     $self->{es_opts}   = $esopts;
     return $self;
-}
-
-sub _require_deps {
-    my ($self,$esopts) = @_;
-
-    my $versioner  = $esopts->{'client.versioner'};
-    my $blamer     = "App::Prove::Elasticsearch::Blamer::".$esopts->{'client.blamer'};
-    my $indexer    = $esopts->{'client.indexer'};
-    my $platformer = $esopts->{'client.platformer'};
-    eval "require $versioner";
-    die $@ if $@;
-    eval "require $blamer";
-    die $@ if $@;
-    eval "require $platformer";
-    die $@ if $@;
-    eval "require $indexer";
-    die $@ if $@;
-    return ($versioner,$blamer,$indexer,$platformer);
 }
 
 =head1 OVERRIDDEN CALLBACKS

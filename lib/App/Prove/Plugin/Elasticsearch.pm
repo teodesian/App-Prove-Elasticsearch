@@ -5,7 +5,6 @@ package App::Prove::Plugin::Elasticsearch;
 
 use strict;
 use warnings;
-use utf8;
 
 use App::Prove::Elasticsearch::Utils();
 

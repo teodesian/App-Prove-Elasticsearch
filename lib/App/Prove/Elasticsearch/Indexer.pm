@@ -5,7 +5,6 @@ package App::Prove::Elasticsearch::Indexer;
 
 use strict;
 use warnings;
-use utf8;
 
 use App::Prove::Elasticsearch::Utils();
 
