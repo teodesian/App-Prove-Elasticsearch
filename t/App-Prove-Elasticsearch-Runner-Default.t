@@ -16,7 +16,6 @@ my $config = {
     'runner.args' => '-wlvm',
 };
 
-
 my $oot = capture_merged { App::Prove::Elasticsearch::Runner::Default::run($config, $0) };
 like($oot,qr/wlvm/,"Runner args represented");
 like($oot,qr/-PElasticsearch/,"Plugin loaded correctly");
