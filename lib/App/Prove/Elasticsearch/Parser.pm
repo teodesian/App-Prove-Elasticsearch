@@ -58,7 +58,7 @@ sub new {
     }
 
     my $indexer = $esopts->{'client.indexer'};
-    eval "require $indexer" or die "cannot find needed indexer $indexer";
+    _require_indexer($indexer);
     my $versioner  = App::Prove::Elasticsearch::Utils::require_versioner($esopts);
     my $platformer = App::Prove::Elasticsearch::Utils::require_platformer($esopts);
     my $blamer     = App::Prove::Elasticsearch::Utils::require_blamer($esopts);
@@ -72,6 +72,11 @@ sub new {
     $self->{starttime} = [Time::HiRes::gettimeofday()];
     $self->{es_opts}   = $esopts;
     return $self;
+}
+
+sub _require_indexer {
+    my $indexer = shift;
+    eval "require $indexer" or die "cannot find needed indexer $indexer";
 }
 
 =head1 OVERRIDDEN CALLBACKS

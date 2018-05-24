@@ -9,30 +9,8 @@ use Capture::Tiny qw{capture_merged};
 use FindBin;
 use App::Prove::Elasticsearch::Parser;
 
-my @expected_modules = (
-        'App::Prove::Elasticsearch::Versioner::Default',
-        'App::Prove::Elasticsearch::Blamer::Default',
-        'App::Prove::Elasticsearch::Indexer',
-        'App::Prove::Elasticsearch::Platformer::Default'
-);
-
 {
-
-    my $opts = { 'server.host'       => 'zippy.test',
-                 'server.port'       => 666,
-                 'client.indexer'    => 'App::Prove::Elasticsearch::Indexer',
-                 'client.blamer'     => 'Default',
-                 'client.platformer' => 'Default',
-                 'client.versioner'  => 'Default',
-                 'ignore_exit'       => undef,
-                 'merge'             => 1,
-                 'source'            => "$FindBin::Bin/data/pass.test",
-                 'spool'             => undef,
-                 'switches'          => [],
-    };
-
-    my @modules = App::Prove::Elasticsearch::Parser::_require_deps(undef,$opts);
-    cmp_bag(\@modules,\@expected_modules,"Require of default extensions OK");
+    is(exception { App::Prove::Elasticsearch::Parser::_require_indexer('App::Prove::Elasticsearch::Indexer') }, undef, "Can require indexer OK");
 }
 
 {
@@ -41,7 +19,10 @@ my @expected_modules = (
     local *App::Prove::Elasticsearch::Blamer::Default::get_responsible_party = sub { return 'billy' };
     local *App::Prove::Elasticsearch::Versioner::Default::get_version        = sub { return '666' };
     local *App::Prove::Elasticsearch::Platformer::Default::get_platforms     = sub { return ['zippyOS'] };
-    local *App::Prove::Elasticsearch::Parser::_require_deps                  = sub { return @expected_modules };
+    local *App::Prove::Elasticsearch::Utils::require_versioner               = sub { return 'App::Prove::Elasticsearch::Versioner::Default'  };
+    local *App::Prove::Elasticsearch::Utils::require_platformer              = sub { return 'App::Prove::Elasticsearch::Platformer::Default' };
+    local *App::Prove::Elasticsearch::Utils::require_blamer                  = sub { return 'App::Prove::Elasticsearch::Blamer::Default'     };
+    local *App::Prove::Elasticsearch::Parser::_require_indexer               = sub {};
     use warnings;
 
     my $opts = { 'server.host'       => 'zippy.test',
