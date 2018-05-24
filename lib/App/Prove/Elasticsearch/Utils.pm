@@ -205,6 +205,7 @@ Sets the ENV var CLIENT_PROVISIONERS for use by testd, etc
 
 sub require_provisioner {
     my $module = shift;
+    $module //= 'Default';
 	my $module_full = "App::Prove::Elasticsearch::Provisioner::$module";
     eval "require $module_full";
     die $@ if $@;

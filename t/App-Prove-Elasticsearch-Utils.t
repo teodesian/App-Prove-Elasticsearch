@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 7;
+use Test::More tests => 23;
 use Test::Fatal;
 use Test::Deep;
 
@@ -30,7 +30,30 @@ REQUIRE: {
     is(exception { App::Prove::Elasticsearch::Utils::require_indexer({}) },undef,"Indexer load OK: defaults");
     like(exception { App::Prove::Elasticsearch::Utils::require_indexer({ 'client.indexer' => 'Bogus' }) },qr/INC/,"Indexer load fails on bogus module");
 
-    #TODO cover require_planner and require_platformer
+    like(exception { App::Prove::Elasticsearch::Utils::require_searcher({}) },qr/INC/,"searcher load croaks by default");
+    is(exception { App::Prove::Elasticsearch::Utils::require_indexer({ 'client.searcher' => 'ByName' }) },undef,"searcher load OK on existing module");
+
+    is(exception { App::Prove::Elasticsearch::Utils::require_blamer({}) },undef,"Blamer load OK: defaults");
+    like(exception { App::Prove::Elasticsearch::Utils::require_blamer({ 'client.blamer' => 'Bogus' }) },qr/INC/,"Blamer load fails on bogus module");
+
+    is(exception { App::Prove::Elasticsearch::Utils::require_planner({}) },undef,"Planner load OK: defaults");
+    like(exception { App::Prove::Elasticsearch::Utils::require_planner({ 'client.planner' => 'Bogus' }) },qr/INC/,"Planner load fails on bogus module");
+
+    is(exception { App::Prove::Elasticsearch::Utils::require_platformer({}) },undef,"Platformer load OK: defaults");
+    like(exception { App::Prove::Elasticsearch::Utils::require_platformer({ 'client.platformer' => 'Bogus' }) },qr/INC/,"Platformer load fails on bogus module");
+
+    is(exception { App::Prove::Elasticsearch::Utils::require_queue({}) },undef,"Queue load OK: defaults");
+    like(exception { App::Prove::Elasticsearch::Utils::require_queue({ 'client.queue' => 'Bogus' }) },qr/INC/,"Queue load fails on bogus module");
+
+    is(exception { App::Prove::Elasticsearch::Utils::require_versioner({}) },undef,"Versioner load OK: defaults");
+    like(exception { App::Prove::Elasticsearch::Utils::require_versioner({ 'client.versioner' => 'Bogus' }) },qr/INC/,"Versioner load fails on bogus module");
+
+    is(exception { App::Prove::Elasticsearch::Utils::require_runner({}) },undef,"Runner load OK: defaults");
+    like(exception { App::Prove::Elasticsearch::Utils::require_runner({ 'client.runner' => 'Bogus' }) },qr/INC/,"Runner load fails on bogus module");
+
+    is(exception { App::Prove::Elasticsearch::Utils::require_provisioner('Git') },undef,"Provisioner load OK: using existing module");
+    like(exception { App::Prove::Elasticsearch::Utils::require_provisioner('Bogus') },qr/INC/,"Provisioner load fails on bogus module");
+
 }
 
 GET_LAST_ID: {
