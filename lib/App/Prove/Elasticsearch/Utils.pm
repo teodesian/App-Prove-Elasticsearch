@@ -8,7 +8,6 @@ use warnings;
 
 use Config::Simple();
 use File::HomeDir();
-use Carp::Always;
 
 =head1 FUNCTIONS
 

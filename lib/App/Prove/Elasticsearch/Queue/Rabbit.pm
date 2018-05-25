@@ -44,10 +44,11 @@ sub new {
 	$self->{read_channel} = 2;
 
     my $port = $self->{config}->{'queue.port'} ? ':'.$self->{config}->{'queue.port'} : '';
-    die "server must be specified" unless $self->{config}->{'server.host'};
+    die("queue.host must be specified") unless $self->{config}->{'queue.host'};
     my $serveraddress = "$self->{config}->{'queue.host'}$port";
 
     $self->{mq}->connect($serveraddress, { user => $self->{config}->{'queue.user'}, password => $self->{config}->{'queue.password'} });
+
     return $self;
 }
 
@@ -69,10 +70,9 @@ sub queue_jobs {
     my ($self,@jobs_to_queue) = @_;
     $self->{mq}->channel_open($self->{write_channel});
 
-    my $errno = 0;
     my $options = $self->{config}->{'queue.exchange'} ? { exchange => $self->{config}->{'queue.exchange'}} : undef;
     foreach my $job (@jobs_to_queue) {
-        $job->{queue_name} = "$job->{version}".join('',@{$job->{platforms}});
+        $job->{queue_name} = $self->build_queue_name($job);
         #Publish each plan to it's own queue, and the name of this queue that needs work to the 'queues needing work' queue
         $self->{mq}->exchange_declare( $self->{write_channel}, $self->{config}->{'queue.exchange'}, { auto_delete => 0, });
         $self->{mq}->queue_declare($self->{write_channel},$job->{queue_name}, { auto_delete => 0 });
@@ -83,8 +83,6 @@ sub queue_jobs {
 
         #filter jobs by what is already done if this is a re-queue for optimization's sake
         if ($self->{requeue}) {
-            $self->{indexer} //= App::Prove::Elasticsearch::Utils::require_indexer($self->{config});
-
             $self->{searcher} = $self->_get_searcher();
             @{$job->{tests}} = $self->{searcher}->filter(@{$job->{tests}});
         }
@@ -98,7 +96,7 @@ sub queue_jobs {
     }
 	$self->{mq}->channel_close($self->{write_channel});
     $self->{mq}->disconnect();
-    return $errno;
+    return 0;
 }
 
 =head2 get_jobs
@@ -117,7 +115,7 @@ sub get_jobs {
     $self->{mq}->channel_open($self->{read_channel});
 
     #I don't think I will have to check that the platform is right & reject/requeue thanks to using multiple queues.
-    my ($ctr,$job,@jobs);
+    my ($ctr,$job,@jobs) = (-1);
     while ($job = $self->{mq}->get($self->{read_channel},$jobspec->{queue_name}, { exchange => $self->{config}->{'queue.exchange'} })) {
         $ctr++;
         last if $self->{config}->{'queue.granularity'} && $ctr >= $self->{config}->{'queue.granularity'};
