@@ -102,6 +102,7 @@ sub provision {
     $pb->run_command_install($desired_platform);
     #This *should*? be enough magic to 'do the deed'
     %ENV = $pb->perlbrew_env($desired_platform);
+    return $desired_platform;
 }
 
 1;
