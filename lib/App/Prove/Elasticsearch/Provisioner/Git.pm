@@ -8,7 +8,9 @@ use warnings;
 
 use App::perlbrew;
 use Perl::Version;
-use Capture::Tiny qw{capture_merged};
+use Capture::Tiny qw{capture_stderr};
+use Git;
+
 
 =head1 SUBROUTINES
 
@@ -23,8 +25,7 @@ Filters out your current branch if passed.
 
 sub get_available_provision_targets {
     my ($cv) = @_;
-    my $branches = qx{git rev-parse --abbrev-ref --all};
-    my @bs = split(/\n/,$branches);
+    my @bs = Git::command(qw{rev-parse --abbrev-ref --all});
     @bs = grep { $cv ne $_ } @bs if $cv;
     return @bs;
 }
@@ -42,9 +43,9 @@ sub pick_platform {
     my $plat;
     foreach my $p (@plats) {
         my @cmd = (qw{git reflog show}, $p);
-        my $rc = 0;
-        capture_merged { $rc = system(@cmd) };
-        if (!($rc >> 8)) {
+        my $ref_exists;
+        capture_stderr { $ref_exists = Git::command(@cmd) };
+        if ($ref_exists) {
             $plat = $p;
             @plats = grep { $_ ne $p } @plats;
             last;
@@ -73,9 +74,7 @@ Switch to the desired version.  Dies unless can_switch_version().
 
 sub switch_version_to {
     my $version_to = shift;
-    die unless can_switch_version();
-    #TODO use git modules to 'do this right, check output etc'
-    qx{git reset --hard $version_to};
+    return Git::command(qw{reset --hard}, $version_to);
 }
 
 =head2 provision(desired,existing)
