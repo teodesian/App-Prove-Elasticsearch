@@ -88,13 +88,7 @@ Example:
 
 =cut
 
-sub provision {
-    my ($desired_platform) = @_;
-    #Move us into a detached HEAD at the desired remote/branch, or just the branch.
-    #TODO do this right, verify remote/branch passed exists, etc.
-    qx{git checkout $desired_platform};
-}
-
+*provision = \&switch_version_to;
 
 1;
 

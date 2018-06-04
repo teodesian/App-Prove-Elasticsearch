@@ -36,11 +36,14 @@ sub test_can_switch_version : Test(2) {
     is(App::Prove::Elasticsearch::Provisioner::Git::can_switch_version('App::Prove::Elasticsearch::Versioner::Moo'),'',"can_switch_version: negative");
 }
 
-sub test_switch_version_to : Test(2) {
+sub test_switch_version_to_and_provision : Test(2) {
     no warnings qw{redefine once};
     local *Git::command = sub { return "@_" };
     use warnings;
-    note App::Prove::Elasticsearch::Provisioner::Git::switch_version_to(666);
+    is( App::Prove::Elasticsearch::Provisioner::Git::switch_version_to(666),"reset --hard 666","switch_version_to: ref reset occurred");
+    is( App::Prove::Elasticsearch::Provisioner::Git::provision(666),"reset --hard 666","provision: ref reset occurred");
 }
+
+
 
 __PACKAGE__->runtests();
