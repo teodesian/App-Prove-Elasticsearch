@@ -106,7 +106,6 @@ sub list_queues {
 	return @$plans if @$plans;
 
 	#construct iterator
-	my $num_combinations=1;
 	my @pigeonholes = map {
 		$matrix{platforms}{$_}
 	} grep { scalar(@{$matrix{platforms}{$_}}) } keys(%{$matrix{platforms}});
