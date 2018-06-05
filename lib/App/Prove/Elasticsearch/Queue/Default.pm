@@ -19,14 +19,12 @@ Accepts a granularity option in the [Queue] section of elastest.conf controlling
 If the value is not set, we default to running everything available for our configuration.
 You can use this to (minimize) duplicate work done when using multiple workers of the same configuration.
 
-Using queu
-
 =head1 CONSTRUCTOR
 
 =head2 new(%config_options)
 
 Thin wrapper around App::Prove::Elasticsearch::Utils::process_configuration.
-Subclasses likely will do more with this, such as advertise their availablilty to a queue.
+Subclasses likely will do more with this, such as advertise their availability to a queue.
 
 =cut
 
@@ -157,7 +155,7 @@ sub queue_jobs {
 
 =head2 build_queue_name
 
-Builds a queue_name inside a passed jobspec containing version and platforms information.
+Builds a queue_name inside a passed job specification hashref containing version and platforms information.
 
 Here mostly in case you need to override this for your queueing solution.
 

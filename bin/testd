@@ -27,6 +27,16 @@ testd
 
 Requires that you have a configured autodiscover value in your ~/elastest.conf.
 
+You can also control behavior via the [testd] section:
+
+    [testd]
+    no_daemon=1
+    max_workers=3
+    [queue]
+    granularity=5
+
+The above configuration would run without daemonizing, 3 workers and 5 tests at a time per worker (max).
+
 When testd is finished running all the available tests for a given configuration,
 it would be inefficient to simply wait however long it takes for new jobs to come in.
 
@@ -69,8 +79,10 @@ sub main {
 
 	my $conf = App::Prove::Elasticsearch::Utils::process_configuration();
 
-	#my $pid = daemonify() or die "Could not daemonize";
-	#print "Spawned as PID $pid\n";
+    if (!$conf->{'testd.no_daemon'}) {
+	    my $pid = daemonify() or die "Could not daemonize";
+	    print "Spawned as PID $pid\n";
+    }
 
     my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
     my $q = &{ \&{$queue . "::new"} }($queue);
@@ -224,7 +236,7 @@ sub worker {
 
 =head2 daemonify
 
-I am purposely not having a PIDFile, logging or any other facilities you can get with start-stop-daemon.
+I am purposely not having a PID file, logging or any other facilities you can get with start-stop-daemon.
 A service file will be provided in /service.
 
 =cut
