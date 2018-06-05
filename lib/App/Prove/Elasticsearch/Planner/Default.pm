@@ -204,9 +204,21 @@ sub get_plan {
     return 0;
 }
 
-=head2 get_plans
+=head2 get_plans(%options)
 
 Get all the plans matching the version/platforms passed.
+
+Input hash specification:
+
+=over 4
+
+=item B<version> - Required. Version of the software to be tested.
+
+=item B<name> - Optional.  Name of the test plan used (if any).
+
+=item B<platforms> - Optional.  ARRAYREF of platform names to be tested upon.  Must match all provided platforms.
+
+=back
 
 =cut
 
@@ -233,6 +245,22 @@ sub get_plans {
     }
     return App::Prove::Elasticsearch::Utils::do_paginated_query($e,$max_query_size,%q);
 }
+
+=head2 get_plans_needing_work(%options)
+
+Ask which of the plans in ES fits the provided specification.
+
+Input hash specification:
+
+=over 4
+
+=item B<searcher> - Required. App::Prove::Elasticsearch::Searcher::* object.
+
+=item All other items should be the same as in get_plans.
+
+=back
+
+=cut
 
 sub get_plans_needing_work {
     my (%options) = @_;

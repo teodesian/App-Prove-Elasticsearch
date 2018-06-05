@@ -232,7 +232,15 @@ sub index_results {
     }
 }
 
-#Helper for migration methods
+=head2 bulk_index_results(@results)
+
+Helper method for migration scripts.
+Uploads an array of results in bulk such as would be fed to index_results.
+
+It is up to the caller to chunk inputs as is appropriate for your installation.
+
+=cut
+
 sub bulk_index_results {
 	my @results = @_;
 	$bulk_helper //= $e->bulk_helper(

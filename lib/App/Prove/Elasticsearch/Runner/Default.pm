@@ -16,9 +16,9 @@ this framework should work with any kind of testing problem.
 
 Therefore, you get a runner plugin framework, much like the other App::Prove::Elasticsearch* plugins.
 
-=head2 SUBROUTINES
+=head1 SUBROUTINES
 
-=head1 run($config,@tests)
+=head2 run($config,@tests)
 
 Runs the provided tests.
 It is up to the caller to put rules files and rc files in the right place;
