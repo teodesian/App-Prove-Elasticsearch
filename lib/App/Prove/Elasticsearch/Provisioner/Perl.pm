@@ -65,7 +65,7 @@ sub pick_platform {
     return $plat, \@plats;
 }
 
-=head2 can_switch_verison(versioner)
+=head2 can_switch_version(versioner)
 
 Returns whether the version can be changed via this provisioner given we use a compatible versioner.
 
@@ -77,7 +77,7 @@ sub can_switch_version {
 
 =head2 switch_version_to(version)
 
-Switch to the desired version.  Dies unless can_switch_version().
+Switch to the desired version.  Dies unless we can switch the SUT version, which is always in this case.
 
 =cut
 

@@ -54,9 +54,9 @@ sub pick_platform {
     return $plat, \@plats;
 }
 
-=head2 can_switch_verison(versioner)
+=head2 can_switch_version(versioner)
 
-Returns whether the version can be changed via this provisioner given we use a compatible versioner,
+Returns whether the SUT version can be changed via this provisioner given we use a compatible versioner,
 which in this case is App::Prove::Elasticsearch::Versioner::Git.
 
 =cut
