@@ -148,6 +148,7 @@ To facilitate that, App::Prove::Elasticsearch::Queue::* modules have been provid
 
 A tool (bin/testd) has also been provided to leverage these queues by watching and waiting for work.
 
+=back
 
 =head2 CONFIGURATION
 
