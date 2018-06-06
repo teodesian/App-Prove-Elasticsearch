@@ -20,4 +20,13 @@ sub get_version {
     return $ENV{TESTSUITE_VERSION};
 }
 
+=head2 get_file_version(file)
+
+Gets the version of a particular file.  Used in versioners where that is possibly the case
+such as Git.  In this case it will always be the same as the SUT version.
+
+=cut
+
+*get_file_version = \&get_version;
+
 1;
