@@ -137,6 +137,16 @@ sub check_index {
                                     keyword => { type => "keyword" }
                                 }
                             },
+                            test_version    => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {
+                                    keyword => { type => "keyword" }
+                                }
+                            },
                             platform           => {
                                 type        => "text",
                                 analyzer    => "default",

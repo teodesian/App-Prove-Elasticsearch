@@ -18,6 +18,7 @@ use App::Prove::Elasticsearch::Parser;
     local *App::Prove::Elasticsearch::Indexer::index_results                 = sub { };
     local *App::Prove::Elasticsearch::Blamer::Default::get_responsible_party = sub { return 'billy' };
     local *App::Prove::Elasticsearch::Versioner::Default::get_version        = sub { return '666' };
+    local *App::Prove::Elasticsearch::Versioner::Default::get_file_version   = sub { return '666' };
     local *App::Prove::Elasticsearch::Platformer::Default::get_platforms     = sub { return ['zippyOS'] };
     local *App::Prove::Elasticsearch::Utils::require_versioner               = sub { return 'App::Prove::Elasticsearch::Versioner::Default'  };
     local *App::Prove::Elasticsearch::Utils::require_platformer              = sub { return 'App::Prove::Elasticsearch::Platformer::Default' };

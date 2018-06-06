@@ -50,9 +50,7 @@ sub new {
     };
 
     my $self = $class->SUPER::new($opts);
-    if ( defined( $self->{'_iterator'}->{'command'} )
-        && ref( $self->{'_iterator'}->{'command'} ) eq 'ARRAY' )
-    {
+    if ( ref( $self->{'_iterator'}->{'command'} ) eq 'ARRAY' ) {
         $self->{'file'} = $self->{'_iterator'}->{'command'}->[-1];
         print "# PROCESSING RESULTS FROM TEST FILE: $self->{'file'}\n";
     }
@@ -68,6 +66,7 @@ sub new {
     $self->{platform}     = &{\&{$platformer."::get_platforms"}}();
     $self->{indexer}      = $indexer;
 
+    $self->{test_version} = &{\&{$versioner."::get_file_version"}}($self->{file});
     $self->{steps}     = [];
     $self->{starttime} = [Time::HiRes::gettimeofday()];
     $self->{es_opts}   = $esopts;
@@ -129,10 +128,6 @@ sub unknownCallback {
     #Unofficial "Extensions" to TAP
     my ($status_override) = $line =~ m/^% mark_status=([A-Z|_]*)/;
     $self->{global_status} = $status_override if $status_override;
-
-    #Allow the parser to operate on TAP files
-    my $file = _getFilenameFromTapLine($line);
-    $self->{'file'} = $file if !$self->{'file'} && $file;
 
     return;
 }
@@ -249,6 +244,7 @@ sub EOFCallback {
         platform      => $self->{platform},
         executor      => $self->{executor},
         version       => $self->{sut_version},
+		test_version  => $self->{test_version},
         name          => basename($self->{file}),
         path          => dirname($self->{file}),
         steps         => $self->{steps},
@@ -263,39 +259,6 @@ sub planCallback {
     my ($plan) = @_;
     my $self = $plan->{'parser'};
     $self->{raw_output} .= $plan->as_string."\n";
-}
-
-sub _getFilenameFromTapLine {
-    my $orig = shift;
-
-    $orig =~ s/ *$//g;    # Strip all trailing whitespace
-
-    #Special case
-    my ($is_skipall) = $orig =~ /(.*)\.+ skipped:/;
-    return $is_skipall if $is_skipall;
-
-    my @process_split = split( / /, $orig );
-    return 0 unless scalar(@process_split);
-    my $dotty =
-      pop @process_split;    #remove the ........ (may repeat a number of times)
-    return 0
-      if $dotty =~
-      /\d/;  #Apparently looking for literal dots returns numbers too. who knew?
-    chomp $dotty;
-    my $line = join( ' ', @process_split );
-
-    #IF it ends in a bunch of dots
-    #AND it isn't an ok/not ok
-    #AND it isn't a comment
-    #AND it isn't blank
-    #THEN it's a test name
-
-    return $line
-      if ( $dotty =~ /^\.+$/
-        && !( $line =~ /^ok|not ok/ )
-        && !( $line =~ /^# / )
-        && $line );
-    return 0;
 }
 
 sub make_result {
