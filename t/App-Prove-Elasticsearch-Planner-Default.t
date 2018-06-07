@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 28;
+use Test::More tests => 29;
 use Test::Deep;
 use Test::Fatal;
 use Capture::Tiny qw{capture_merged};
@@ -211,4 +211,18 @@ MAKE_PLAN_UPDATE: {
 
     is_deeply(App::Prove::Elasticsearch::Planner::Default::make_plan_update($existing,%out),$expected,"make_plan_update mongles: noop => 1");
 
+}
+
+GET_PLAN_STATUS: {
+    my $plan = {
+        version => 666,
+        platforms => ['zippy'],
+        tests => ['a','b',],
+    };
+    no warnings qw{redefine once};
+    local *App::Prove::Elasticsearch::Searcher::ByName::get_test_replay = sub {return 'jello'};
+    use warnings;
+    my $searcher = bless({},'App::Prove::Elasticsearch::Searcher::ByName');
+
+    is(App::Prove::Elasticsearch::Planner::Default::get_plan_status($plan,$searcher),'jello',"get_plan_status passthru to searcher get test replay works");
 }

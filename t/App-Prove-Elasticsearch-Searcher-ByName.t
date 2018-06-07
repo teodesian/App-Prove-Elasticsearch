@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 7;
+use Test::More tests => 9;
 use Test::Fatal;
 use Test::Deep;
 
@@ -81,3 +81,26 @@ use App::Prove::Elasticsearch::Searcher::ByName;
     is(App::Prove::Elasticsearch::Searcher::ByName::_has_results($obj), 3, "Get a true value when there are 3 hits.");
 
 }
+
+{
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [] } } };
+    local *App::Prove::Elasticsearch::Searcher::ByName::_has_results = sub { return 1 };
+    use warnings;
+
+    my $e = bless({},'Search::Elasticsearch');
+    my $obj = bless({ handle => $e, index => 'zippy' },"App::Prove::Elasticsearch::Searcher::ByName");
+    my $expected = [{ name => 'zippy.t', status => 'UNTESTED', body => ''},{ name => 'tickle.t', status => 'UNTESTED', body => ''}];
+    my @got = $obj->get_test_replay(666,['moo'],'zippy.t','tickle.t');
+    cmp_bag(\@got, $expected, "No hits returns tests as UNTESTED.");
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::search = sub { return { 'hits' => { 'hits' => [{ _source => 'whee' }] } } };
+    use warnings;
+    $expected = ['whee', 'whee'];
+    @got = $obj->get_test_replay(666,[],'zippy.t','tickle.t');
+    cmp_bag(\@got, $expected, "Raw result returned when hits are recieved");
+
+}
+
+

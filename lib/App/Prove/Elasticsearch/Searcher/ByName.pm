@@ -113,6 +113,49 @@ sub filter {
     return @tests_filtered;
 }
 
+=head2 get_test_replay($sut_version,$platforms,@tests)
+
+Returns a hash describing the test result body and the global status of each test provided.
+
+Must be filtered by the provided sut version and platforms (arrayref).
+
+=cut
+
+sub get_test_replay {
+    my ($self,$tversion,$platz,@tests) = @_;
+
+    return @tests unless $self->_has_results();
+
+    my @tests_filtered;
+    foreach my $test (@tests) {
+        my %q = (
+            index => $self->{index},
+            body  => {
+                query => {
+                    query_string => {
+                        query => qq{name: "$test" AND version: "$tversion"},
+                    },
+                },
+                size => 1
+            },
+        );
+
+        foreach my $plat (@$platz) {
+            $q{body}{query}{query_string}{query} .= qq{ AND platform: "$plat"};
+        }
+
+        my $docs = $self->{handle}->search(%q);
+
+        #OK, check if this document we got back *actually* matched
+        if (!scalar(@{$docs->{hits}->{hits}}) ) {
+            push(@tests_filtered, { name => $test, status => 'UNTESTED', body => '' } );
+            next;
+        }
+        push(@tests_filtered, $docs->{hits}->{hits}->[0]->{_source});
+    }
+    return @tests_filtered;
+}
+
 sub _has_results {
     my ($self) = @_;
 
