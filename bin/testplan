@@ -36,22 +36,29 @@ If no tests are passed, any tests in t/ will be used by default.
 
 =head2 optional switches
 
---show - display the proposed plan instead of creating it, and whether or not it already exists (or will be modified by passed arguments).
+=over 4
 
---prompt - display proposed modifications to a plan (if any) will be made on the server.
+=item B<--show> - display the proposed plan instead of creating it, and whether or not it already exists (or will be modified by passed arguments).
+If the plan already exists, the execution status of the relevant tests will also be displayed.
 
---pairwise - If configured with platform groups (see below), consider the plan satisfied if each platform passed appears at least once.
+=item B<--prompt> - display proposed modifications to a plan (if any) will be made on the server.
+
+=item B<--pairwise> - If configured with platform groups (see below), consider the plan satisfied if each platform passed appears at least once.
 In the event that a plan update is made, tests will be properly apportioned upon update.
 
---all-platforms - If configured with platform groups, use all those available rather than passing manually with --platform.
+=item B<--all-platforms> - If configured with platform groups, use all those available rather than passing manually with --platform.
 
---name - If you want to differentiate your run from others with the same versions/platforms, use this.
+=item B<--name> - If you want to differentiate your run from others with the same versions/platforms, use this.
 
---recurse - if passing directories of tests, recurse past the first level to find tests.
+=item B<--recurse> - if passing directories of tests, recurse past the first level to find tests.
 
---extension - If passing directories, check for tests with these extensions.  May be passed multiple times, defaults to t
+=item B<--extension> - If passing directories, check for tests with these extensions.  May be passed multiple times, defaults to t
 
---requeue - Re-queue an existing plan, in case something didn't quite work out.  Use to suppress prompts about re-queueing in --prompt mode.
+=item B<--requeue> - Re-queue an existing plan, in case something didn't quite work out.  Use to suppress prompts about re-queueing in --prompt mode.
+
+=item B<--replay> - Dump the body of the test(s) associated when in --show mode.  Filter the tests displayed by passing test names.
+
+=back
 
 =head1 CONFIGURATION
 
@@ -140,6 +147,7 @@ sub main {
         'extension=s@'  => \$options{exts},
         'name'          => \$options{name},
         'requeue'       => \$options{requeue},
+        'replay'        => \$options{replay},
         'help'          => \$help,
     );
     $options{platforms} //= [];
@@ -195,11 +203,18 @@ sub main {
     my $q = &{ \&{$queue . "::new"} }($queue,\@conf);
     $q->{requeue} = $options{requeue};
 
+    my $searcher = $q->_get_searcher();
+
     my $global_result = 0;
     my $queue_result  = 0;
     foreach my $plan (@plans) {
 
         if ($options{show}) {
+            $plan->{replay} = \@args if $options{replay};
+            #Get the state of the plan
+            $plan->{state} = [];
+            @{$plan->{state}} = &{ \&{$planner . "::get_plan_status"} }($plan,$searcher);
+
             _print_plan($plan,1);
             next;
         }
@@ -339,10 +354,51 @@ sub _build_plan {
 sub _print_plan {
     my ($plan,$force) = @_;
     if (!$plan->{noop} || $force) {
-        require Data::Dumper;
-        print "Plan already exists:\n";
+        print "Name: $plan->{name}\n" if $plan->{name};
+        print "SUT version: $plan->{version}\n";
+        print "Platforms: ".join(', ',@{$plan->{platforms}})."\n";
+        print "Pairwise? ".( $plan->{pairwise} ne 'false' ? 'yes' : 'no' )."\n";
+        print "Created at $plan->{created}\n";
         print "=========================\n";
-        print Data::Dumper::Dumper($plan);
+        if ($plan->{state}) {
+            foreach my $t (@{$plan->{state}}) {
+                if ($plan->{replay}) {
+                    next if (scalar(@{$plan->{replay}}) && !grep { $_ eq $t->{name} } @{$plan->{replay}} );
+                    print "\n$t->{name}..\n";
+                    print "Test Version: $t->{test_version}\n";
+                    print "=========================\n";
+                    print "$t->{body}";
+                }
+
+                my $pln = '';
+                if ($t->{status} ne 'UNTESTED') {
+                    my $executed = scalar(@{$t->{steps}});
+                    my $planned = $t->{steps_planned};
+                    $pln = "$executed/$planned ";
+                }
+                printf "%-60s %-10s %s\n",$t->{name} ,$pln,$t->{status};
+            }
+        } else {
+            foreach my $t (@{$plan->{tests}}) {
+                print "$t\n";
+            }
+            if ($plan->{update}) {
+                if (ref $plan->{update}->{subtraction}->{tests} eq 'ARRAY') {
+                    print "\nRemove the following from the plan:\n";
+                    print "=========================\n";
+                    foreach my $t (@{$plan->{update}->{subtraction}->{tests}}) {
+                        print "$t\n";
+                    }
+                }
+                if (ref $plan->{update}->{addition}->{tests} eq 'ARRAY') {
+                    print "\nAdd the following to the plan:\n";
+                    print "=========================\n";
+                    foreach my $t (@{$plan->{update}->{addition}->{tests}}) {
+                        print "$t\n";
+                    }
+                }
+            }
+        }
     } else {
         print "Plan already exists, and no updates will be made.\n";
     }

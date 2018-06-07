@@ -280,6 +280,19 @@ sub get_plans_needing_work {
     return \@plans;
 }
 
+=head2 get_plan_status(plan)
+
+Gets the status of the tests to be run in the provided plan, regardless of if the plan even exists.
+
+=cut
+
+sub get_plan_status {
+    my ($plan,$searcher) = @_;
+
+    die "Can't discover plan status without case autodiscover configured!" unless $searcher;
+    return $searcher->get_test_replay($plan->{version},$plan->{platforms},@{$plan->{tests}});
+}
+
 =head2 add_plan_to_index($plan)
 
 Add or update a test plan.
