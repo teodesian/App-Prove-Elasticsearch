@@ -10,6 +10,55 @@ Can be configured using an INI file in your home directory, "elastest.conf"
 When run with no configuration it assumes you want to test things like they are a CPAN perl distribution.
 One of the intentions here is to possibly be a next-gen storage backend for a CPANTesters type tool.
 
+Practical Use Case: End to end automatically scaling CI
+========================================================
+
+Suppose you have an orchestration service such as OpenStack Heat,
+A rabbitmq server somewhere,
+A continuous integration platform such as Jenkins linked to your repo, and
+A CPAN module you want to test.
+
+You would first build an appropriate elastest.conf based primarily on what system platforms you need supporting your system under test (SUT).
+You would also configure it how to communicate with your rabbitmq server.
+
+Next, you would put said configuration and this module on VM images, and ensure bin/testd was running on startup.
+You would then configure heat to ensure you had adequate testing resources for all relevant platforms at all times.
+
+Finally, setup your jenkins test plan for the repository to create test plans for all your relevant platforms using bin/testplan.
+The jenkins plan would then simply wait until it observed the plan was complete with bin/testplan --show, or a 'NOT OK' result occurred in the output.
+
+bin/testd is capable of splitting up testing jobs amongst many hosts via rabbit;  You could even improve Scaling and resource usage efficiency by using Heat's auto-scaling mechanisms via telemetry.
+
+Practical Use Case: Replace usage of test management system
+============================================================
+
+One of the primary goals of this software was to allow usage of Git + App::Prove::Elasticsearch + ES & Kibana in lieu of a Test Management System.
+I was drowning in data, and all existing test management systems (at the time of this writing) were database applications.
+As such, I needed more flexibility if I was to discover higher order phenomenon in our test results such as:
+
+* What systems were 'defect attractors' e.g. they regressed most frequently
+* What tests need most improvement (high false positive rate)
+* Trends in single and aggregate test runtime
+* Searching for error messages which exist across multiple subsystems
+
+The way this can be accomplished using our tools, but while still having the power of a full-fledged test management system is simple:
+
+* Use Git as your test tracker and versioner.  This will allow full history of both manual and automated tests.
+* Use bin/testplan to both plan test runs, and report the results.
+* Run manual tests using bin/manualtest
+* Associate test results with defects in trackers via bin/associate_test_result
+* View and create dashboards in kibana (or use the built-ins with this module) to view interesting higher-order test phenomena.
+
+This allows more flexibility than traditional test management software; your tests can be in any file format you want;
+as long as you instruct prove how to use them (or run them with manualtest), ES will accept the results.
+Any editor can be used, maximizing test author productivity.
+
+Furthermore, as this is an entirely command line system, wrapping it with interfaces and additional automation should be straightforward.
+
+Plugins
+=========
+
+
 App::Prove::Elasticsearch::Indexer -
 * Subclass to send results to other indexes via simply changing a variable
 * Subclass to extend the information being indexed for use later
