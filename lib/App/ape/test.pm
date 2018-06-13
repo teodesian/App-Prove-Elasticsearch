@@ -1,0 +1,148 @@
+package App::ape::test;
+
+# ABSTRACT: Run a test manually and upload the results to Elasticsearch
+# PODNAME: App::Ape::test
+
+use strict;
+use warnings;
+
+use Getopt::Long qw{GetOptionsFromArray};
+use App::Prove::Elasticsearch::Utils;
+use Pod::Usage;
+
+=head1 USAGE
+
+Adding new results:
+
+    ape test -s OK [ -e 55 -d defect1 ] test1 ... testN
+
+When adding results, your $EDITOR will be opened unless -b is passed.
+
+=head2 OPTIONS
+
+=over 4
+
+=item B<-s [STATUS]> : This will be set for all the relevant test results indexed.  Mandatory.
+
+=item B<-d [DEFECT]> : this will be associated with all the relevant test results indexed.  May be passed multiple times.
+
+=item B<-c [CONFIGURATION]> : override configuration value, e.g. server.host=some.es.host.  Can be passed multiple times.
+
+=item B<-e [SECONDS]> : Override the 'elapsed' field.  Normally the amount of time used to edit your test comment in $EDITOR is used.
+
+=item B<-b [FILE]> : Provide the body of the test result in the passed file.
+
+=back
+
+=cut
+
+sub new {
+    my ($class,@args) = @_;
+
+    my (%options,@conf, $help);
+    GetOptionsFromArray(
+        \@args,
+        'defect=s@'    => \$options{defects},
+        'configure=s@' => \@conf,
+        'status=s'     => \$options{status},
+        'elapsed=s'    => \$options{elapsed},
+        'body=s'       => \$options{body},
+        'help'         => \$help
+    );
+
+    #Deliberately exiting here, as I "unit" test this as the binary
+    pod2usage(0) if $help;
+
+    if (!$options{status}) {
+        pod2usage(
+            -exitval => "NOEXIT",
+            -msg     => "Insufficient arguments.  You must pass a status.",
+        );
+        return 1;
+    }
+
+
+    if (!scalar(@args)) {
+        pod2usage(
+            -exitval => "NOEXIT",
+            -msg     => "Insufficient arguments.  You must pass at least one test.",
+        );
+        return 1;
+    }
+
+    my $conf = App::Prove::Elasticsearch::Utils::process_configuration(@conf);
+
+    if (scalar(grep { my $subj = $_; grep { $subj eq $_ } qw{server.host server.port} } keys(%$conf)) != 2 ) {
+        pod2usage(
+            -exitval => "NOEXIT",
+            -msg => "Insufficient information provided to associate defect with test results to elasticsearch",
+        );
+        return 3;
+    }
+
+    $0 = "ape test: starting up";
+
+    my $self = { options => \%options };
+
+    $self->{indexer} = App::Prove::Elasticsearch::Utils::require_indexer($conf);
+    &{ \&{$self->{indexer} . "::check_index"} }($conf);
+
+    my $searcher = App::Prove::Elasticsearch::Utils::require_searcher($conf);
+    $self->{searcher} = $searcher->new($conf, $self->{indexer});
+
+    $self->{versioner} = App::Prove::Elasticsearch::Utils::require_versioner($conf);
+    $self->{version} = &{ \&{$self->{versioner} . "::get_version"} }();
+    my @cases = map { { name => $_, version => &{ \&{$self->{versioner} . "::get_file_version"} }($_) } } @args;
+
+    $self->{cases} = \@cases;
+
+    return bless($self,$class);
+}
+
+sub run {
+    my ($self) = @_;
+
+    my $global_result = 0;
+    foreach my $case (@{$self->{cases}}) {
+        $0 = "ape test : $case->{name}";
+
+        if (!-f $case->{name}) {
+            print "No such case $case->{name} on filesystem, skipping.\n";
+            next;
+        }
+
+        my $occurred = time();
+        my $output = $self->get_test_commentary();
+        die 'got here';
+        my $elapsed = time() - $occurred;
+
+        my $upload = {
+            body          => $output,
+            elapsed       => $elapsed,
+            occurred      => strftime("%Y-%m-%d %H:%M:%S",localtime($occurred)),
+            status        => $self->{options}{status},
+            platform      => $self->{platforms},
+            executor      => $self->{executor},
+            version       => $self->{version},
+            test_version  => $case->{version},
+            name          => basename($case->{name}),
+            path          => dirname($case->{name}),
+        };
+
+
+        $global_result += eval { &{ \&{$self->{indexer} . "::index_results"} }($upload) };
+        print "$@\n" if $@;
+    }
+    $0 = "ape test: shutting down";
+    print "$global_result tests failed to be associated, examine above output\n" if $global_result;
+    return $global_result ? 2 : 0;
+}
+
+sub get_test_commentary {
+    #TODO fork, then open $EDITOR or $VISUAL if set.  Die if not set.
+    #When done waitpid'ing, read the temp file written to which was made by the parent (File::Temp).
+    return 'whee';
+}
+
+1;
+

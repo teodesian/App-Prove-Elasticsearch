@@ -1,0 +1,9 @@
+use strict;
+use warnings;
+
+#Really was tempted to go with Grape::Ape here
+use App::ape;
+
+my $app = App::ape->new(@ARGV);
+exit $app unless ref($app) =~ m/^App::ape::/;
+exit $app->run();
