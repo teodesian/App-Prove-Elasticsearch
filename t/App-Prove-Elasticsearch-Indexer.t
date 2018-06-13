@@ -63,6 +63,7 @@ use App::Prove::Elasticsearch::Indexer;
         versions  => ['666.666'],
         defects   => ['YOLO-666'],
         case      => 'zippy.test',
+        status    => 'TEST BAD',
     );
 
     local $ENV{SERVER_HOST} = 'zippy.doodah';
@@ -125,6 +126,7 @@ use App::Prove::Elasticsearch::Indexer;
         body  => {
             doc => {
                 defect => ['YOLO-666'],
+                status => 'TEST BAD',
             },
         }
     };

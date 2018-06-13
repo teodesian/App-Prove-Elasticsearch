@@ -1,9 +1,10 @@
-#!/usr/bin/env perl
-
 # ABSTRACT: Associate Test results with a tracked defect
-# PODNAME: associate_test_result
+# PODNAME: App::ape::update
 
-package Bin::associate_test_result;
+package App::ape::update;
+
+use strict;
+use warnings;
 
 use Getopt::Long qw{GetOptionsFromArray};
 use App::Prove::Elasticsearch::Utils;
@@ -11,7 +12,7 @@ use Pod::Usage;
 
 =head1 USAGE
 
-associate_test_result [-p ONLY_PLATFORM -v ONLY_VERSION ] -d Defect1 -d Defect2 test1 ... testN
+ape update [-p ONLY_PLATFORM -v ONLY_VERSION -s STATUS ] -d Defect1 -d Defect2 test1 ... testN
 
 =head2 MANDATORY INPUT
 
@@ -31,6 +32,8 @@ associate_test_result [-p ONLY_PLATFORM -v ONLY_VERSION ] -d Defect1 -d Defect2 
 
 =item B<-c [CONFIGURATION]> : override configuration value, e.g. server.host=some.es.host.  Can be passed multiple times.
 
+=item B<-s [STATUS]> : override the current status of the relevant test results.
+
 =back
 
 After applying the options, the defect will be applied to all the tests you have provided as arguments.
@@ -39,28 +42,21 @@ If a result is updated or fails to update, you will be notified the IDs of the d
 
 =cut
 
-exit main(@ARGV) unless caller();
-
-=head1 INTERNAL INTERFACE
-
-=head2 main(@args)
-
-Run the program over user supplied args (key=value)
-
-=cut
-
-sub main {
-    my @args = @_;
+sub new {
+    my ($class,@args) = @_;
 
     my (%options,@conf, $help);
     GetOptionsFromArray(
         \@args,
-        'defect=s@'   => \$options{defects},
+        'defect=s@'    => \$options{defects},
         'platform=s@'  => \$options{platforms},
         'version=s@'   => \$options{versions},
         'configure=s@' => \@conf,
+        'status=s'     => \$options{status},
         'help'         => \$help
     );
+
+    $options{defects} //= [];
 
     #Deliberately exiting here, as I "unit" test this as the binary
     pod2usage(0) if $help;
@@ -91,13 +87,20 @@ sub main {
         return 3;
     }
 
-    my $indexer = App::Prove::Elasticsearch::Utils::require_indexer($conf);
-    &{ \&{$indexer . "::check_index"} }($conf);
+    my $self = { options => \%options, cases => \@args };
 
+    $self->{indexer} = App::Prove::Elasticsearch::Utils::require_indexer($conf);
+    &{ \&{$self->{indexer} . "::check_index"} }($conf);
+
+    return bless($self,$class);
+}
+
+sub run {
+    my $self = shift;
     my $global_result = 0;
-    foreach my $case (@args) {
-        $options{case} = $case;
-        $global_result += &{ \&{$indexer . "::associate_case_with_result"} }(%options);
+    foreach my $case (@{$self->{cases}}) {
+        $self->{options}{case} = $case;
+        $global_result += &{ \&{$self->{indexer} . "::associate_case_with_result"} }(%{$self->{options}});
     }
     print "$global_result tests failed to be associated, examine above output\n" if $global_result;
     return $global_result ? 2 : 0;

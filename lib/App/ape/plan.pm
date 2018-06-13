@@ -1,9 +1,7 @@
-#!/usr/bin/env perl
-
-# PODNAME: testplan
+# PODNAME: App::ape::plan
 # ABSTRACT: plan testing using elasticsearch
 
-package Bin::testplan;
+package App::ape::plan;
 
 use strict;
 use warnings;
@@ -19,7 +17,7 @@ use POSIX qw{strftime};
 
 =head1 USAGE
 
-testplan --version blahblah --platform something -- test1 test2 test3...testN
+ape plan --version blahblah --platform something -- test1 test2 test3...testN
 
 Will create a test plan and store it in elasticsearch, supposing one does not already exist for the passed version.
 Will also queue tests if a non-default Queue module is configured in elastest.conf.
@@ -129,10 +127,8 @@ See L<App::Prove::Elasticsearch::Planner::Default> as a template for making plan
 
 =cut
 
-exit main(@ARGV) unless caller;
-
-sub main {
-    my @args = @_;
+sub new {
+    my ($class,@args) = @_;
 
     my (%options,@conf, $help);
     GetOptionsFromArray(
@@ -182,11 +178,7 @@ sub main {
         return 4;
     }
 
-    #Use Prove's arg parser to grab tests & globs correctly
-    my $proveState = App::Prove::State->new();
-    $proveState->extensions($options{exts}) if $options{exts};
-    my @tests_filtered = $proveState->get_tests( $options{'recurse'}, @args );
-    @args = map { basename $_ } grep { -f $_ }  @tests_filtered;
+    my $self = {};
 
     #default platforms to whatever platformer can figure out
     if (!scalar(@{$options{platforms}}) && !$options{allplatforms} ) {
@@ -194,48 +186,63 @@ sub main {
         $options{platforms} = &{ \&{$platformer . "::get_platforms"} }();
     }
 
-    my $planner = App::Prove::Elasticsearch::Utils::require_planner($conf);
-    &{ \&{$planner . "::check_index"} }($conf);
-
-    my @plans = _build_plans($planner,$conf,\@args,%options);
+    $self->{planner} = App::Prove::Elasticsearch::Utils::require_planner($conf);
+    &{ \&{$self->{planner} . "::check_index"} }($conf);
 
     my $queue = App::Prove::Elasticsearch::Utils::require_queue($conf);
-    my $q = &{ \&{$queue . "::new"} }($queue,\@conf);
-    $q->{requeue} = $options{requeue};
+    $self->{queue} = &{ \&{$queue . "::new"} }($queue,\@conf);
+    $self->{queue}->{requeue} = $options{requeue};
 
-    my $searcher = $q->_get_searcher();
+    $self->{searcher} = $self->{queue}->_get_searcher();
+
+    #Use Prove's arg parser to grab tests & globs correctly
+    my $proveState = App::Prove::State->new();
+    $proveState->extensions($options{exts}) if $options{exts};
+    my @tests_filtered = $proveState->get_tests( $options{'recurse'}, @args );
+    @args = map { basename $_ } grep { -f $_ }  @tests_filtered;
+    $self->{cases} = \@args;
+
+    $self->{conf} = $conf;
+    $self->{options} = \%options;
+
+    return bless($self,$class);
+}
+
+sub run {
+    my $self = shift;
+
+    my @plans = _build_plans($self->{planner},$self->{conf},$self->{cases},%{$self->{options}});
 
     my $global_result = 0;
     my $queue_result  = 0;
     foreach my $plan (@plans) {
 
-        if ($options{show}) {
-            $plan->{replay} = \@args if $options{replay};
+        if ($self->{options}{show}) {
+            $plan->{replay} = $self->{cases} if $self->{options}{replay};
             #Get the state of the plan
             $plan->{state} = [];
-            @{$plan->{state}} = &{ \&{$planner . "::get_plan_status"} }($plan,$searcher);
+            @{$plan->{state}} = &{ \&{$self->{planner} . "::get_plan_status"} }($plan,$self->{searcher});
 
             _print_plan($plan,1);
             next;
         }
-        if ($options{prompt}) {
+        if ($self->{options}{prompt}) {
             _print_plan($plan);
             if (!$plan->{noop}) {
-                prompt( "Do you want to enact the above changes?" ) or next;
+                IO::Prompter::prompt( "Do you want to enact the above changes?" ) or next;
             } else {
-                ( prompt( "Do you want to re-queue the plan?" ) or next ) unless $options{requeue};
-                $q->{requeue} = 1;
-                $queue_result  += $q->queue_jobs($plan);
+                ( IO::Prompter::prompt( "Do you want to re-queue the plan?" ) or next ) unless $self->{options}{requeue};
+                $self->{queue}->{requeue} = 1;
+                $queue_result  += $self->{queue}->queue_jobs($plan);
                 next;
             }
         }
-        $global_result += &{ \&{$planner . "::add_plan_to_index"} }($plan);
-        $queue_result  += $q->queue_jobs($plan) if !$plan->{noop} || $options{requeue};
+        $global_result += &{ \&{$self->{planner} . "::add_plan_to_index"} }($plan);
+        $queue_result  += $self->{queue}->queue_jobs($plan) if !$plan->{noop} || $self->{options}{requeue};
     }
     print "$global_result plans failed to be created, examine above output\n" if $global_result;
     print "$queue_result plans failed to be queued, examine above output\n"   if $queue_result;
     return $global_result ? 2 : 0;
-
 }
 
 sub _build_plans {
@@ -407,5 +414,4 @@ sub _print_plan {
 1;
 
 __END__
-
 
