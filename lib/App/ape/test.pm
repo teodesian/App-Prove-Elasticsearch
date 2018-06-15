@@ -9,6 +9,9 @@ use warnings;
 use Getopt::Long qw{GetOptionsFromArray};
 use App::Prove::Elasticsearch::Utils;
 use Pod::Usage;
+use File::Temp;
+use POSIX qw{strftime};
+use File::Basename qw{basename dirname};
 
 =head1 USAGE
 
@@ -93,8 +96,12 @@ sub new {
     $self->{versioner} = App::Prove::Elasticsearch::Utils::require_versioner($conf);
     $self->{version} = &{ \&{$self->{versioner} . "::get_version"} }();
     my @cases = map { { name => $_, version => &{ \&{$self->{versioner} . "::get_file_version"} }($_) } } @args;
-
     $self->{cases} = \@cases;
+
+    $self->{blamer} = App::Prove::Elasticsearch::Utils::require_blamer($conf);
+
+    $self->{platformer} =  App::Prove::Elasticsearch::Utils::require_platformer($conf);
+    $self->{platforms} = &{ \&{$self->{platformer} . "::get_platforms"} }();
 
     return bless($self,$class);
 }
@@ -110,10 +117,10 @@ sub run {
             print "No such case $case->{name} on filesystem, skipping.\n";
             next;
         }
+        my $executor = &{ \&{$self->{blamer} . "::get_responsible_party"} }($case->{name});
 
         my $occurred = time();
         my $output = $self->get_test_commentary();
-        die 'got here';
         my $elapsed = time() - $occurred;
 
         my $upload = {
@@ -122,26 +129,46 @@ sub run {
             occurred      => strftime("%Y-%m-%d %H:%M:%S",localtime($occurred)),
             status        => $self->{options}{status},
             platform      => $self->{platforms},
-            executor      => $self->{executor},
+            executor      => $executor,
             version       => $self->{version},
             test_version  => $case->{version},
             name          => basename($case->{name}),
             path          => dirname($case->{name}),
         };
 
-
-        $global_result += eval { &{ \&{$self->{indexer} . "::index_results"} }($upload) };
+        eval { &{ \&{$self->{indexer} . "::index_results"} }($upload) };
         print "$@\n" if $@;
     }
     $0 = "ape test: shutting down";
-    print "$global_result tests failed to be associated, examine above output\n" if $global_result;
-    return $global_result ? 2 : 0;
+    return 0;
 }
 
 sub get_test_commentary {
-    #TODO fork, then open $EDITOR or $VISUAL if set.  Die if not set.
-    #When done waitpid'ing, read the temp file written to which was made by the parent (File::Temp).
-    return 'whee';
+    my $self = shift;
+
+    my ($fh, $filename);
+    if ($self->{options}->{body}) {
+        $filename = $self->{options}->{body};
+    } else {
+        my $editor = $ENV{EDITOR} || $ENV{VISUAL};
+        die "Either pass --body or have EDITOR or VISUAL set to edit your test result body." unless $editor;
+
+        (undef, $filename) = File::Temp::tempfile();
+        my $pid = fork();
+        if (!$pid) {
+            exec($editor, $filename);
+        }
+        waitpid($pid,0);
+    }
+
+    die "No such file $filename!" unless -f $filename;
+    my $out;
+    open ($fh, '<', $filename);
+    while (<$fh>) { $out .= $_ };
+    close $fh;
+    die "Empty test update inside of $filename!" unless $out;
+
+    return $out;
 }
 
 1;
