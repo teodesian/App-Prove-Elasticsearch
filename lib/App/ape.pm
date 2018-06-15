@@ -4,7 +4,7 @@ use strict;
 use warnings;
 
 use App::ape::test;
-#use App::ape::plan;
+use App::ape::plan;
 #use App::ape::update;
 
 sub new {
