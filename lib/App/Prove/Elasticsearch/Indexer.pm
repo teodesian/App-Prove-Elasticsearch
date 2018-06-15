@@ -336,7 +336,7 @@ sub associate_case_with_result {
         $hit->{defect} //= [];
         my @df_merged = List::Util::uniq((@{$hit->{defect}},@{$opts{defects}}));
 
-        my $res = $e->update(
+        my %update = (
             index => $index,
             id => $hit->{_id},
             type => 'result',
@@ -346,6 +346,9 @@ sub associate_case_with_result {
                 },
             }
         );
+        $update{body}{doc}{status} = $opts{status} if $opts{status};
+
+        my $res = $e->update(%update);
 
         print "Associated cases to document $hit->{_id}\n" if $res->{result} eq 'updated';
         if (!grep { $res->{result} eq $_ } qw{updated noop}) {

@@ -1,4 +1,4 @@
-# PODNAME: testplan
+# PODNAME: App::ape::plan
 # ABSTRACT: plan testing using elasticsearch
 
 package App::ape::plan;

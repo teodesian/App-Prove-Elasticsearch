@@ -5,7 +5,7 @@ use warnings;
 
 use App::ape::test;
 use App::ape::plan;
-#use App::ape::update;
+use App::ape::update;
 
 sub new {
     my (undef,@args) = @_;
