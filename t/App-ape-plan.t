@@ -58,4 +58,58 @@ sub test_new : Test(5) {
     is_deeply($obj->{options},$expected,"args appear to parse correctly");
 }
 
+sub test_run : Test(5) {
+    no warnings qw{redefine once};
+    local *App::ape::plan::_build_plans = sub { return ( { noop => 1 } ) };
+    local *Banana::In::Tailpipe::get_plan_status = sub {};
+    local *App::ape::plan::_print_plan = sub {};
+    use warnings;
+
+    my $test_obj = bless({
+       planner => 'Banana::In::Tailpipe',
+       queue => bless({},'Banana::In::Tailpipe'),
+       conf => {},
+       cases => [],
+       options => {
+            show => 1,
+            requeue => 1,
+       },
+    },"App::ape::plan");
+
+    is( $test_obj->run(), 0, "Can run all the way through OK in --show mode");
+
+    $test_obj->{options}{show} = 0;
+    $test_obj->{options}{prompt} = 0;
+
+    no warnings qw{redefine once};
+    local *Banana::In::Tailpipe::add_plan_to_index = sub { return 0 };
+    local *Banana::In::Tailpipe::queue_jobs = sub { return 0 };
+    use warnings;
+
+    is( $test_obj->run(), 0, "Can run all the way through OK in no-show no-prompt mode");
+
+    $test_obj->{options}{prompt} = 1;
+    $test_obj->{options}{requeue} = 0;
+
+    no warnings qw{redefine once};
+    local *IO::Prompter::prompt = sub { return 1 };
+    use warnings;
+
+    is( $test_obj->run(), 0, "Can run all the way through OK in prompt mode: noop");
+
+    no warnings qw{redefine once};
+    local *App::ape::plan::_build_plans = sub { return ( { noop => 0 } ) };
+    use warnings;
+
+    is( $test_obj->run(), 0, "Can run all the way through OK in prompt mode: normal execution");
+
+    no warnings qw{redefine once};
+    local *Banana::In::Tailpipe::add_plan_to_index = sub { return 1 };
+    local *Banana::In::Tailpipe::queue_jobs = sub { return 1 };
+    use warnings;
+
+    is( $test_obj->run(), 2, "Can run all the way through and get bad exit code when add plan/queue fails");
+
+}
+
 __PACKAGE__->runtests();

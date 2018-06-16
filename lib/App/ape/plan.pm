@@ -229,9 +229,9 @@ sub run {
         if ($self->{options}{prompt}) {
             _print_plan($plan);
             if (!$plan->{noop}) {
-                prompt( "Do you want to enact the above changes?" ) or next;
+                IO::Prompter::prompt( "Do you want to enact the above changes?" ) or next;
             } else {
-                ( prompt( "Do you want to re-queue the plan?" ) or next ) unless $self->{options}{requeue};
+                ( IO::Prompter::prompt( "Do you want to re-queue the plan?" ) or next ) unless $self->{options}{requeue};
                 $self->{queue}->{requeue} = 1;
                 $queue_result  += $self->{queue}->queue_jobs($plan);
                 next;
@@ -243,7 +243,6 @@ sub run {
     print "$global_result plans failed to be created, examine above output\n" if $global_result;
     print "$queue_result plans failed to be queued, examine above output\n"   if $queue_result;
     return $global_result ? 2 : 0;
-
 }
 
 sub _build_plans {
