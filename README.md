@@ -1,11 +1,11 @@
-# App-Prove-Plugin-Elasticsearch
+# App-Prove-Elasticsearch (ape)
 
 <img alt="TravisCI Build Status" src="https://travis-ci.org/teodesian/App-Prove-Elasticsearch.svg"></img>
 <a href='https://coveralls.io/r/teodesian/App-Prove-Elasticsearch?branch=build%2Fmaster'><img src='https://coveralls.io/repos/teodesian/App-Prove-Elasticsearch/badge.svg?branch=build%2Fmaster' alt='Coverage Status' /></a>
 <a href="https://cpants.cpanauthors.org/dist/App-Prove-Elasticsearch"><img alt="kwalitee" src="https://cpants.cpanauthors.org/dist/App-Prove-Elasticsearch.png"></img></a>
 
 
-A Plugin to upload test results to Elasticsearch in real time.
+A Plugin to upload test results to Elasticsearch in real time, a program `ape` allowing command-line test management, and persistent testing daemon `testd`.
 
 Has a pluggable archetechure, and a variety of built-in ways to gather information about the system under test.
 
