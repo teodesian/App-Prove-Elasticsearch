@@ -112,4 +112,28 @@ sub test_run : Test(5) {
 
 }
 
+sub test_build_plans: Test(1) {
+
+}
+
+sub test_build_plan: Test(2) {
+    my $planner = 'Grape::Ape::FecesHurl';
+    my $tests = ['a', 'b', 'c'];
+    my %options = ( 'exists' => 1 );
+
+    no warnings qw{redefine once};
+    local *Grape::Ape::FecesHurl::get_plan = sub { my %options = @_; return $options{'exists'} };
+    local *Grape::Ape::FecesHurl::make_plan = sub { return 'new' };
+    local *Grape::Ape::FecesHurl::make_plan_update = sub { return 'update' };
+    use warnings;
+
+    is(App::ape::plan::_build_plan($planner,$tests,%options),'update', "Can make update plan correctly");
+    $options{exists} = 0;
+    is(App::ape::plan::_build_plan($planner,$tests,%options),'new', "Can make new plan correctly");
+}
+
+sub test_print_plan: Test(1) {
+
+}
+
 __PACKAGE__->runtests();
