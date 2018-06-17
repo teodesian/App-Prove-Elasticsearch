@@ -40,6 +40,12 @@ After applying the options, the defect will be applied to all the tests you have
 
 If a result is updated or fails to update, you will be notified the IDs of the documents which failed/succeeded to update, and a reason.
 
+=head1 CONSTRUCTOR
+
+=head2 new(@ARGV)
+
+Process arguments and require the relevant plugins required to update a result in elasticsearch.
+
 =cut
 
 sub new {
@@ -94,6 +100,14 @@ sub new {
 
     return bless($self,$class);
 }
+
+=head1 METHODS
+
+=head2 run()
+
+Upload the case result modification to Elasticsearch per the passed arguments.
+
+=cut
 
 sub run {
     my $self = shift;

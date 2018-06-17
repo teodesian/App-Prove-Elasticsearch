@@ -39,6 +39,14 @@ When adding results, your $EDITOR will be opened unless -b is passed.
 
 =cut
 
+=head1 CONSTRUCTOR
+
+=head2 new(@ARGV)
+
+Process arguments and include all relevant plugins to add a test result.
+
+=cut
+
 sub new {
     my ($class,@args) = @_;
 
@@ -106,10 +114,17 @@ sub new {
     return bless($self,$class);
 }
 
+=head1 METHODS
+
+=head2 run()
+
+Executes the upload of results to Elasticsearch.
+
+=cut
+
 sub run {
     my ($self) = @_;
 
-    my $global_result = 0;
     foreach my $case (@{$self->{cases}}) {
         $0 = "ape test : $case->{name}";
 
@@ -142,6 +157,13 @@ sub run {
     $0 = "ape test: shutting down";
     return 0;
 }
+
+=head2 get_test_commentary
+
+If the user has passed a --body, we will read it.
+Otherwise, open up an EDITOR/VISUAL session to allow them to write to a temp file their test body.
+
+=cut
 
 sub get_test_commentary {
     my $self = shift;

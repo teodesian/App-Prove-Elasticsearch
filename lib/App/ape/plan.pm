@@ -115,7 +115,7 @@ therefore only one run would be required, supposing it satisfied all the provide
 
 Furthermore, the tests provided will be evenly apportioned amongst the sets of platforms produced, to further expedite testing.
 
-=head1 EXTENSIBILITY
+=head2 EXTENSIBILITY
 
 As with all the other utilities here, the backend used to store test plans is extensible by specifying the planner class in elastest.conf.
 
@@ -124,6 +124,12 @@ Setting client.planner=SomeClass
 would correspond to App::Prove::Elasticsearch::Planner::SomeClass being loaded and used as the planner backend.
 
 See L<App::Prove::Elasticsearch::Planner::Default> as a template for making planner classes.
+
+=head1 CONSTRUCTOR
+
+=head2 new(@ARGV)
+
+Process the passed configuration and arguments and require the necessary plugins to create or view test plans.
 
 =cut
 
@@ -208,6 +214,14 @@ sub new {
     return bless($self,$class);
 }
 
+=head1 METHODS
+
+=head2 run()
+
+Creates or views test plans based on your passed data.
+
+=cut
+
 sub run {
     my $self = shift;
 
@@ -288,7 +302,7 @@ sub _build_plans {
                 #Figure out how many tests to dole out to the run
                 my @tests_apportioned;
                 my $tests_picked = int(scalar(@$tests) / scalar(@{$conf->{$longest}}) );
-                for my $j (0..$tests_picked) {
+                for (0..$tests_picked) {
                     my $picked = shift @$tests;
                     push(@tests_apportioned,$picked) if $picked;
                 }
@@ -302,7 +316,6 @@ sub _build_plans {
         } else {
 
             #construct iterator
-            my $num_combinations=1;
             my @pigeonholes = map {
                 $conf->{$_}
             } @pgroups;
