@@ -11,7 +11,7 @@ use App::Prove::Elasticsearch::Utils();
 use Search::Elasticsearch();
 use File::Basename();
 use Cwd();
-use List::Util qw{uniq};
+use List::Util 1.45 qw{uniq};
 
 our $index = 'testplans';
 our $e;    # for caching

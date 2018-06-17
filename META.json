@@ -55,7 +55,7 @@
             "Git" : "0",
             "IO::Prompter" : "0",
             "JSON::MaybeXS" : "0",
-            "List::Util" : "1.33",
+            "List::Util" : "1.45",
             "MCE::Loop" : "0",
             "MCE::Shared" : "0",
             "MCE::Signal" : "0",
