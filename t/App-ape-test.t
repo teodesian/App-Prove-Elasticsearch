@@ -38,4 +38,26 @@ sub test_new : Test(4) {
     isa_ok(App::ape::test->new(qw{--status OK whee.test}),"App::ape::test");
 }
 
+sub test_run: Test(1) {
+    my $obj = bless({
+        'cases' => [
+            { name => 'a', version => 666 },
+            { name => 'b', version => 666 }
+        ],
+        blamer => 'Grape::Ape',
+        indexer => 'Grape::Ape',
+        options => { status => 'whee' },
+        platforms => [],
+        version => 666,
+    }, "App::ape::test");
+
+    no warnings qw{redefine once};
+    local *Grape::Ape::get_repsonsible_party = sub { return 'billy' };
+    local *App::ape::test::get_test_commentary = sub {return "i tell you what" };
+    local *Grape::Ape::index_results = sub {};
+    use warnings;
+
+    is($obj->run(),0,"run() can go all the way thru");
+}
+
 __PACKAGE__->runtests();
