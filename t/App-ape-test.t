@@ -60,4 +60,6 @@ sub test_run: Test(1) {
     is($obj->run(),0,"run() can go all the way thru");
 }
 
+#I'm not testing get_test_commentary for now.
+
 __PACKAGE__->runtests();
