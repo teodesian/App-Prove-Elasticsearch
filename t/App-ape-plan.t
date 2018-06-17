@@ -7,6 +7,7 @@ use parent qw{Test::Class};
 use Test::More;
 use Test::Fatal;
 use Test::Deep;
+use Capture::Tiny qw{capture};
 
 use App::ape::plan;
 
@@ -132,8 +133,37 @@ sub test_build_plan: Test(2) {
     is(App::ape::plan::_build_plan($planner,$tests,%options),'new', "Can make new plan correctly");
 }
 
-sub test_print_plan: Test(1) {
+sub test_print_plan: Test(7) {
+    my $plan = {
+        'noop'      => 1,
+        'name'      => 'whee',
+        'version'   => 666,
+        'platforms' => ['a', 'b'],
+        'pairwise'  => 'true',
+        'created'   => 'now',
+        'tests'     => ['a','b'],
+        'update'    => {
+            'subtraction' => { tests => ['c'] },
+            'addition'    => { tests => ['d'] },
+        },
+    };
+    like(capture { App::ape::plan::_print_plan($plan) },qr/already exists/i,"When there's nothing to do, user is notified");
 
+    like(capture { App::ape::plan::_print_plan($plan,1) }, qr/remove/i, "Force --show prints noop plan details (removal)");
+    like(capture { App::ape::plan::_print_plan($plan,1) }, qr/add/i, "Force --show prints noop plan details (removal)");
+
+    $plan->{noop} = 0;
+    $plan->{state} = [
+        { name => 'a', test_version => 666, body => 'wheee', status => 'SIPPYCUP', steps => ['a','b','c'], steps_planned => 3 },
+        { name => 'b', test_version => 666, body => 'wheee', status => 'UNTESTED'}
+    ];
+
+    like(capture { App::ape::plan::_print_plan($plan) }, qr/sippycup/i, "Test results show up");
+    unlike(capture { App::ape::plan::_print_plan($plan) }, qr/wheee/i, "Test bodies don't show up by default");
+    like(capture { App::ape::plan::_print_plan($plan) }, qr/untested/i, "Untested results display correctly");
+
+    $plan->{replay} = ['a','b'];
+    like(capture { App::ape::plan::_print_plan($plan) }, qr/wheee/i, "Test bodies show up by when replays exist");
 }
 
 __PACKAGE__->runtests();
