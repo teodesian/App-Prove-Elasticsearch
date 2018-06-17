@@ -70,7 +70,7 @@ sub new {
             -exitval => "NOEXIT",
             -msg     => "Insufficient arguments.  You must pass at least one test.",
         );
-        return 1;
+        return 2;
     }
 
     my $conf = App::Prove::Elasticsearch::Utils::process_configuration(@conf);
