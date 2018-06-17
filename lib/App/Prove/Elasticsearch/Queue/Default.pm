@@ -6,7 +6,7 @@ package App::Prove::Elasticsearch::Queue::Default;
 use strict;
 use warnings;
 
-use List::Util qw{shuffle uniq};
+use List::Util 1.45 qw{shuffle uniq};
 use App::Prove::Elasticsearch::Utils;
 
 =head1 SUMMARY
