@@ -7,11 +7,16 @@ use strict;
 use warnings;
 use utf8;
 
-use Sys::Info::OS;
+use System::Info;
 
 sub get_responsible_party {
-    my $info = Sys::Info::OS->new();
-    return $info->login_name() . '@' . $info->host_name();
+    my $info = System::Info->sysinfo_hash();
+    return _get_uname() . '@' . $info->{hostname};
+}
+
+sub _get_uname {
+    my @pw_info = getpwuid($<);
+    return $pw_info[0];
 }
 
 1;

@@ -64,7 +64,6 @@
             "Perl::Version" : "0",
             "Pod::Usage" : "0",
             "Search::Elasticsearch" : "0",
-            "Sys::Info::OS" : "0",
             "System::Info" : "0",
             "TAP::Harness" : "0",
             "TAP::Parser" : "0",

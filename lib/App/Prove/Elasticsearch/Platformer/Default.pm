@@ -1,4 +1,4 @@
-# ABSTRACT: Determine the platform of the system under test via Sys::Info::OS for upload to elasticsearch
+# ABSTRACT: Determine the platform of the system under test via System::Info for upload to elasticsearch
 # PODNAME: App::Prove::Elasticsearch::Platformer::Default
 
 package App::Prove::Elasticsearch::Platformer::Default;
@@ -24,7 +24,7 @@ __END__
 
 =head1 NAME
 
-App::Prove::Elasticsearch::Platformer::Default - Determine the platform of the system under test via Sys::Info::OS for upload to elasticsearch
+App::Prove::Elasticsearch::Platformer::Default - Determine the platform of the system under test via System::Info for upload to elasticsearch
 
 =head1 VERSION
 
