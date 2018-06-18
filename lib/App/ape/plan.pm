@@ -251,6 +251,11 @@ sub run {
                 next;
             }
         }
+
+        #Ensure bogus data doesn't get into ES
+        delete $plan->{replay};
+        delete $plan->{requeue};
+
         $global_result += &{ \&{$self->{planner} . "::add_plan_to_index"} }($plan);
         $queue_result  += $self->{queue}->queue_jobs($plan) if !$plan->{noop} || $self->{options}{requeue};
     }
