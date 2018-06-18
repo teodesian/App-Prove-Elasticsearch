@@ -382,10 +382,10 @@ sub _print_plan {
         print "=========================\n";
         if ($plan->{state}) {
             foreach my $t (@{$plan->{state}}) {
-                if ($plan->{replay}) {
+                if ($plan->{replay} && $t->{body}) {
                     next if (scalar(@{$plan->{replay}}) && !grep { $_ eq $t->{name} } @{$plan->{replay}} );
                     print "\n$t->{name}..\n";
-                    print "Test Version: $t->{test_version}\n";
+                    print "Test Version: $t->{test_version}\n" if $t->{test_version};
                     print "=========================\n";
                     print "$t->{body}";
                 }
