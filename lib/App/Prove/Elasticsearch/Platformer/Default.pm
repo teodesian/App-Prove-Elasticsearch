@@ -7,7 +7,7 @@ use strict;
 use warnings;
 use utf8;
 
-use Sys::Info::OS;
+use System::Info;
 
 =head1 SUBROUTINES
 
@@ -18,8 +18,8 @@ Return the OS version and perl version as an array.
 =cut
 
 sub get_platforms {
-    my $info = Sys::Info::OS->new();
-    return [ $info->name( edition => 1, long => 1 ), "Perl $]" ]
+    my $details = System::Info::sysinfo_hash();
+    return [ $details->{osname}, $details->{distro}, "Perl $]" ]
 }
 
 1;
