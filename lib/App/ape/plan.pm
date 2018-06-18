@@ -144,6 +144,11 @@ sub run {
                 next;
             }
         }
+
+        #Ensure bogus data doesn't get into ES
+        delete $plan->{replay};
+        delete $plan->{requeue};
+
         $global_result +=
           &{\&{$self->{planner} . "::add_plan_to_index"}}($plan);
         $queue_result += $self->{queue}->queue_jobs($plan)
@@ -291,18 +296,20 @@ sub _print_plan {
         print "=========================\n";
         if ($plan->{state}) {
             foreach my $t (@{$plan->{state}}) {
-                if ($plan->{replay}) {
+                if ($plan->{replay} && $t->{body}) {
                     next
                       if (scalar(@{$plan->{replay}})
                         && !grep { $_ eq $t->{name} } @{$plan->{replay}});
                     print "\n$t->{name}..\n";
-                    print "Test Version: $t->{test_version}\n";
+                    print "Test Version: $t->{test_version}\n"
+                      if $t->{test_version};
                     print "=========================\n";
                     print "$t->{body}";
                 }
 
                 my $pln = '';
-                if ($t->{status} ne 'UNTESTED') {
+                if (   ($t->{status} ne 'UNTESTED')
+                    && (ref($t->{steps}) eq 'ARRAY')) {
                     my $executed = scalar(@{$t->{steps}});
                     my $planned  = $t->{steps_planned};
                     $pln = "$executed/$planned ";

@@ -7,11 +7,11 @@ use strict;
 use warnings;
 use utf8;
 
-use Sys::Info::OS;
+use System::Info;
 
 sub get_platforms {
-    my $info = Sys::Info::OS->new();
-    return [ $info->name(edition => 1, long => 1), "Perl $]" ];
+    my $details = System::Info::sysinfo_hash();
+    return [ $details->{osname}, $details->{distro}, "Perl $]" ];
 }
 
 1;

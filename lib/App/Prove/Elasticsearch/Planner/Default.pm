@@ -73,12 +73,40 @@ sub check_index {
                                 type   => "date",
                                 format => "yyyy-MM-dd HH:mm:ss"
                             },
-                            creator   => {type => "text"},
-                            version   => {type => "text"},
-                            platforms => {type => "text"},
-                            tests     => {type => "text"},
-                            pairwise  => {type => "boolean"},
-                            name      => {
+                            creator => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {keyword => {type => "keyword"}}
+                            },
+                            version => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {keyword => {type => "keyword"}}
+                            },
+                            platforms => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {keyword => {type => "keyword"}}
+                            },
+                            tests => {
+                                type        => "text",
+                                analyzer    => "default",
+                                fielddata   => "true",
+                                term_vector => "yes",
+                                similarity  => "classic",
+                                fields      => {keyword => {type => "keyword"}}
+                            },
+                            pairwise => {type => "boolean"},
+                            name     => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
