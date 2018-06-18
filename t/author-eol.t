@@ -72,6 +72,7 @@ my @files = (
     't/App-ape-test.t',
     't/App-ape-update.t',
     't/App-ape.t',
+    't/ape.t',
     't/author-critic.t',
     't/author-eol.t',
     't/author-mojibake.t',
