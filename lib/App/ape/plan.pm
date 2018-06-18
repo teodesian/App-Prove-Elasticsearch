@@ -391,7 +391,7 @@ sub _print_plan {
                 }
 
                 my $pln = '';
-                if ($t->{status} ne 'UNTESTED') {
+                if ( ($t->{status} ne 'UNTESTED') && (ref($t->{steps}) eq 'ARRAY') ) {
                     my $executed = scalar(@{$t->{steps}});
                     my $planned = $t->{steps_planned};
                     $pln = "$executed/$planned ";
