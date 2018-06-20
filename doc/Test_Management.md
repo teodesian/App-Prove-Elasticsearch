@@ -10,6 +10,7 @@ Assumptions:
 * You use a continuous integration system to execute your automated testing
 * Your system under test (SUT) is tracked in your source control system (Git will be used as our example)
 * Your SUT is deployed on multiple target environments, and must be tested on said environments.
+* You use a web interface to view & review test plans and individual test results
 
 Goals:
 ======
@@ -20,6 +21,9 @@ Goals:
 * Update test results after the fact using `ape update`
 * Distribute testing to split up the work currently done by your CI system, but still have results fed in there
 * Do pairwise testing to reduce the testing load over your target environments
+
+How To
+=======
 
 1. Import all your existing test results into ES.
     scripts/ has an importer for TestRail, but you should be able to modify to suit for your TMS.
@@ -86,6 +90,23 @@ To then finish executing the manual tests so that the plan will be complete, you
 Until you run out of manual tests to run.
 
 Your build will then complete in your CI platform, and you can begin the process all over again.
+
+7. Now that your testing is actually done, let's get down to the reason we're using elasticsearch at all: Kibana.
+
+Import the built-in dashboards in /dashboards to get an idea of the sort of data you can see using this tool that are incredibly difficult to discern using a database TMS.
+
+Here are some things you can do in the discover interface that are super useful:
+
+* Search the full-text of test results for keywords trivially
+* Easily see the version of the test when executed (in Git, this is a SHA you can check out directly)
+* Drill down and only see results of a particular status easily
+* Show tests only executed by particular executors (say, QA analysts, or a particular test host)
+* Display test plan results much the same way as done in `ape plan` above using Lucene Queries via the 'discover interface:
+
+(example using the results from testing this very module using this plugin):
+`platform: "Ubuntu Linux 16.04 (kernel: 4.4.0-127-generic)"  AND "Perl 5.022001" AND version: "bf562d9feb3911a15c6533d696ce6afdf04687f3"`
+
+<img src="https://github.com/teodesian/App-Prove-Elasticsearch/blob/master/doc/img/kibana_example.png" alt="example image" />
 
 Executing automated tests directly
 ===================================
