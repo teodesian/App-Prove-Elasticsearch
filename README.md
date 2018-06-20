@@ -61,9 +61,10 @@ Any editor can be used, maximizing test author productivity.
 
 Furthermore, as this is an entirely command line system, wrapping it with interfaces and additional automation should be straightforward.
 
+See <a href="https://github.com/teodesian/App-Prove-Elasticsearch/blob/master/doc/Test_Management.md">doc/Test_Management.md</a> for more details.
+
 Plugins
 =========
-
 
 App::Prove::Elasticsearch::Indexer -
 * Subclass to send results to other indexes via simply changing a variable
