@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 23;
+use Test::More tests => 24;
 use Test::Fatal;
 use Test::Deep;
 
@@ -72,4 +72,13 @@ GET_LAST_ID: {
 
 }
 
+ENSURE_RW: {
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::indices = sub { return bless({},'Search::Elasticsearch::Client::6_0::Direct::Indices') };
+    local *Search::Elasticsearch::Client::6_0::Direct::Indices::put_settings = sub { return 'billy' };
+    use warnings;
 
+    my $e = bless({},'Search::Elasticsearch');
+    is(App::Prove::Elasticsearch::Utils::ensure_index_is_writable($e,'billy'),'billy',"ensure_index_is_writable works");
+
+}

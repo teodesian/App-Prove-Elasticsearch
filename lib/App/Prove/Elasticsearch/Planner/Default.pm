@@ -165,8 +165,10 @@ sub check_index {
                 }
             }
         );
+        App::Prove::Elasticsearch::Utils::ensure_index_is_writable($e,$index);
         return 1;
     }
+    App::Prove::Elasticsearch::Utils::ensure_index_is_writable($e,$index);
     return 0;
 }
 

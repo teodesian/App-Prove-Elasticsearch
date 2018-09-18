@@ -294,4 +294,18 @@ sub do_paginated_query {
 	return $hits;
 }
 
+=head2 ensure_index_is_writable($es,$index)
+
+Ask the provided $es Search::Elasticsearch object to ensure the provided index is writable.
+
+=cut
+
+sub ensure_index_is_writable {
+    my ($e,$index) = @_;
+    return $e->indices->put_settings(
+        index => $index,
+        body => { "index.blocks.read_only" => 0 },
+    );
+}
+
 1;

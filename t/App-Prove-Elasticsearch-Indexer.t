@@ -14,6 +14,7 @@ use App::Prove::Elasticsearch::Indexer;
     local *Search::Elasticsearch::new = sub { return bless({},'Search::Elasticsearch') };
     local *Search::Elasticsearch::indices = sub { return bless({},'Search::Elasticsearch::Indices') };
     local *Search::Elasticsearch::Indices::exists = sub { return 1};
+    local *App::Prove::Elasticsearch::Utils::ensure_index_is_writable = sub {};
     use warnings;
 
     like(exception { App::Prove::Elasticsearch::Indexer::check_index() }, qr/server must be specified/i,"Indexer dies in the event server & port  is not specified");
