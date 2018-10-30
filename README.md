@@ -118,6 +118,7 @@ Multiple binners may be used to subdivide into many sub-bins; however be aware m
 * Isolation - Use Yath style HARNESS-CATEGORY-ISOLATION directive in tests to force these tests to run sequentially before all other tests.
 * ExecutionTime - Examine ES data on duration to try to sort bins to minimize total run-time.
 * RedMeat - Examine ES data to run tests that fail the most first.  Useful for smokers that stop immediately on failure.
+
 Bins are subdivided in the order passed.  For example, Isolation,ExecutionTime,RedMeat would mean there is:
 * An Isolate and Normal bin
 * with ExecutionTime bins minimizing total runtime of all tests in each containing Isolate or Normal bin
