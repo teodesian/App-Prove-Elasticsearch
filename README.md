@@ -106,3 +106,20 @@ You can override test global statuses in the event of environmental failures, et
 Inside the test.
 
 If you use the status DISCARD, the test result will simply be omitted and not uploaded to the index.
+
+Testd Plugins
+=============
+App::Prove::Elasticsearch::Provisioner - Used to setup system state before execution of tests.  Multiple can be used via elastest.conf
+* Git - Checks out a branch which is assumed to be available in your $CWD where you execute tests.
+* Perl - Use PerlBrew to execute the tests using different perls.
+
+App::Prove::Elasticsearch::Binner - Sort the tests to run into "bins" which each have their own set of provisioners to run.
+Multiple binners may be used to subdivide into many sub-bins; however be aware many bins necessarily imply more overhead to test execution.
+* Isolation - Use Yath style HARNESS-CATEGORY-ISOLATION directive in tests to force these tests to run sequentially before all other tests.
+* ExecutionTime - Examine ES data on duration to try to sort bins to minimize total run-time.
+* RedMeat - Examine ES data to run tests that fail the most first.  Useful for smokers that stop immediately on failure.
+Bins are subdivided in the order passed.  For example, Isolation,ExecutionTime,RedMeat would mean there is:
+* An Isolate and Normal bin
+* with ExecutionTime bins minimizing total runtime of all tests in each containing Isolate or Normal bin
+* with RedMeat bins in front of Normal bins in each containing ExecutionTime bin.
+
