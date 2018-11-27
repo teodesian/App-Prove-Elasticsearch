@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl
 
 # PODNAME: testd
 # ABSTRACT: watch for tests needing running and run them
