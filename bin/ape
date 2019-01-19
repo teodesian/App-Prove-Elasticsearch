@@ -7,11 +7,11 @@
 
 =over 4
 
-=item B<ape test> - Add test results manually
+=item B<ape test> - Add test results manually.  See L<App::ape::test>.
 
-=item B<ape update> - Update test results (associate defects, et cetera)
+=item B<ape update> - Update test results (associate defects, et cetera). See L<App::ape::update>.
 
-=item B<ape plan> - Make and queue test plans for execution by testd
+=item B<ape plan> - Make and queue test plans for execution by testd.  See L<App::ape::plan>.
 
 =back
 

@@ -56,6 +56,9 @@ In the event that a plan update is made, tests will be properly apportioned upon
 
 =item B<--replay> - Dump the body of the test(s) associated when in --show mode.  Filter the tests displayed by passing test names.
 
+=item B<--dump> - Dump the plan's argument list into a testsuite directory (symlinked list of tests to run).  Use to create 'pre-made' test plans used frequently.
+If the directory provided already exists, it will be overwritten.
+
 =back
 
 =head1 CONFIGURATION
@@ -125,6 +128,12 @@ would correspond to App::Prove::Elasticsearch::Planner::SomeClass being loaded a
 
 See L<App::Prove::Elasticsearch::Planner::Default> as a template for making planner classes.
 
+=head2 TESTSUITES
+
+With normal test management tools, you have a mechanism by which "test suites" can be created as sort of mix and match lists of tests for which test plans can easily be formed from.
+Given this is a command line tool, we embrace the nature of the file system by making your directory structure of tests your test suites (and subsections thereof).
+Basically, you should re-structure the directory layout of your tests such that it mirrors the state of whatever your testsuites looked like in your old test management software.
+
 =head1 CONSTRUCTOR
 
 =head2 new(@ARGV)
@@ -150,6 +159,7 @@ sub new {
         'name'          => \$options{name},
         'requeue'       => \$options{requeue},
         'replay'        => \$options{replay},
+        'dump'          => \$options{dump},
         'help'          => \$help,
     );
     $options{platforms} //= [];
@@ -179,7 +189,7 @@ sub new {
     if (scalar(grep { my $subj = $_; grep { $subj eq $_ } qw{server.host server.port} } keys(%$conf)) != 2 ) {
         pod2usage(
             -exitval => "NOEXIT",
-            -msg => "Insufficient information provided to associate defect with test results to elasticsearch",
+            -msg => "Insufficient information provided to contact elasticsearch.  Please adjust your ~/elastest.conf",
         );
         return 4;
     }
@@ -226,6 +236,11 @@ sub run {
     my $self = shift;
 
     my @plans = _build_plans($self->{planner},$self->{conf},$self->{cases},%{$self->{options}});
+
+    if ($self->{options}{dump}) {
+        use Data::Dumper;
+        die Dumper($self->{cases});
+    }
 
     my $global_result = 0;
     my $queue_result  = 0;
