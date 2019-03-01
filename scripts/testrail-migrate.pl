@@ -100,12 +100,14 @@ sub main {
     @$projects = grep {my $subj = $_; any { $subj->{name} eq $_ } @{$options->{projects}} } @$projects if scalar(@{$options->{projects}});
 
     foreach my $project (@$projects) {
-
-        my $runs  = $tr->getRuns($project->{id});
+        print "Checking project $project->{name}...\n";
+        my $runs = $tr->getRuns($project->{id});
         @$runs = grep {my $subj = $_; any { $subj->{name} =~ m/$_/ } @patterns } @$runs if @patterns;
+        print "Considering ".scalar(@$runs)." runs...\n";
 
         my $plans = $tr->getPlans($project->{id});
         @$plans = grep {my $subj = $_; any { $subj->{name} =~ m/$_/ } @patterns } @$plans if @patterns;
+        print "Considering ".scalar(@$plans)." plans...\n";
 
         #Filter by completed-on if provided
         if ($options->{since}) {
@@ -115,21 +117,29 @@ sub main {
 
         foreach my $plan (@$plans) {
             my $planRuns = $tr->getChildRuns($tr->getPlanByID($plan->{id}));
+            print "Considering ".scalar(@$planRuns)." runs as children of plan $plan->{id}...\n";
             push(@$runs,@$planRuns);
+            _index_runs($runs,$tr,$indexer) if scalar(@$runs) >= 10;
         }
+        _index_runs($runs,$tr,$indexer) if scalar(@$runs);
+    }
+    return %ret;
+}
 
+sub _index_runs {
+    my ($runs,$tr,$indexer) = @_;
         foreach my $run (reverse @$runs) {
-			unless ($run->{passed_count}         + $run->{failed_count}         + $run->{blocked_count} +
-				    $run->{custom_status1_count} + $run->{custom_status2_count} + $run->{custom_status3_count} +
-					$run->{custom_status4_count} + $run->{custom_status5_count} + $run->{custom_status6_count} +
-					$run->{custom_status7_count}
-			) {
-				print "Run $run->{id} had no results, skipping...\n";
-				next;
-			}
+            unless ($run->{passed_count}         + $run->{failed_count}         + $run->{blocked_count} +
+                    $run->{custom_status1_count} + $run->{custom_status2_count} + $run->{custom_status3_count} +
+                    $run->{custom_status4_count} + $run->{custom_status5_count} + $run->{custom_status6_count} +
+                    $run->{custom_status7_count}
+            ) {
+                print "Run $run->{id} had no results, skipping...\n";
+                next;
+            }
 
-			my @documents;
-			print "Examining run $run->{id}...\n";
+            my @documents;
+            print "Examining run $run->{id}...\n";
             my $tests = $tr->getTests($run->{id});
             foreach my $test (@$tests) {
                 if (!$test->{case_id}) {
@@ -140,21 +150,20 @@ sub main {
                 $test->{section} = get_section_info($tr,$test->{case_id});
 
                 $test->{config} = $run->{config};
-				my @rdocs = build_document($tr,$test);
-				unless (@rdocs) {
-					print "No results for $test->{title}, skipping...\n";
-					next;
-				}
-				print "Adding ".scalar(@rdocs)." results for $test->{title}...\n";
+                my @rdocs = build_document($tr,$test);
+                unless (@rdocs) {
+                    print "No results for $test->{title}, skipping...\n";
+                    next;
+                }
+                print "Adding ".scalar(@rdocs)." results for $test->{title}...\n";
                 push(@documents,@rdocs);
             }
-			next unless scalar(@documents);
-			print "Indexing ".scalar(@documents)." documents...";
-	        &{ \&{$indexer . "::bulk_index_results"} }(@documents);
-			print "Done!\n";
+            next unless scalar(@documents);
+            print "Indexing ".scalar(@documents)." documents...";
+            &{ \&{$indexer . "::bulk_index_results"} }(@documents);
+            print "Done!\n";
         }
-    }
-    return %ret;
+    return $runs = [];
 }
 
 sub get_section_info {
@@ -169,20 +178,22 @@ sub get_section_info {
 }
 
 sub _get_sec {
-	my ($tr,$sec) = @_;
-	return $sec_cache->{$sec} if $sec_cache->{$sec};
+    my ($tr,$sec) = @_;
+    return $sec_cache->{$sec} if $sec_cache->{$sec};
 
     my $s = $tr->getSectionByID($sec);
-	$sec_cache->{$sec} = $s->{name};
-	return $s->{name};
+    $sec_cache->{$sec} = $s->{name};
+    return $s->{name};
 }
 
 sub build_document {
     my ($tr,$test) = @_;
 
-    my $results = $tr->getTestResults($test->{id});
+    my $results = eval { $tr->getTestResults($test->{id}) };
+    print "$@" unless $results;
+    return () unless $results;
 
-	my @documents;
+    my @documents;
     foreach my $result (@$results) {
         next unless $result->{status_id};
         next if $tr->{current_status_map}->{$result->{status_id}} eq 'untested';
@@ -203,10 +214,10 @@ sub build_document {
         $test_mangled->{platform} = $test->{config}    if $test->{config}; #XXX this will need more work if we use multi-config
         $test_mangled->{steps}    = translate_steps($tr,$result->{"custom_$tr->{step_field}"}) if $tr->{step_field} && $result->{"custom_$tr->{step_field}"};
 
-		push(@documents,$test_mangled);
+        push(@documents,$test_mangled);
         last if $tr->{'only-last'};
     }
-	return @documents;
+    return @documents;
 }
 
 sub translate_status {

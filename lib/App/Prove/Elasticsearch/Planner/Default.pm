@@ -73,8 +73,6 @@ sub check_index {
             index => $index,
             body  => {
                 index => {
-                    number_of_shards   => "3",
-                    number_of_replicas => "2",
                     similarity         => {
                         default => {
                             type => "classic"
