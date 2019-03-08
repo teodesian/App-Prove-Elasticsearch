@@ -190,8 +190,8 @@ sub build_document {
     my ($tr,$test) = @_;
 
     my $results = eval { $tr->getTestResults($test->{id}) };
-    print "$@" unless $results;
-    return () unless $results;
+    print "$@" unless $results > 0;
+    return () unless $results > 0;
 
     my @documents;
     foreach my $result (@$results) {
