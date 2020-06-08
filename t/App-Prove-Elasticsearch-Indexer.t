@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 17;
+use Test::More tests => 20;
 use Test::Fatal;
 use Test::Deep;
 use Capture::Tiny qw{capture_merged};
@@ -50,6 +50,20 @@ use App::Prove::Elasticsearch::Indexer;
     use warnings;
 
     like( exception { App::Prove::Elasticsearch::Indexer::index_results({ name => 'zippy.test' }) }, qr/failed to index/i, "check_index dies in event of failure.");
+
+    no warnings qw{redefine once};
+    use Search::Elasticsearch::Util qw(throw);
+    local *Search::Elasticsearch::index = sub { throw( "NoNodes", "No nodes are blah blah blah" ) };
+    use warnings;
+
+    is( App::Prove::Elasticsearch::Indexer::index_results({ name => 'bungle2.test' }), undef, "check_index NoNodes returns");
+    like(capture_merged { App::Prove::Elasticsearch::Indexer::index_results({ name => 'bungle2.test' }) },qr/No nodes are blah blah blah/i,"NoNodes prints a message");
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::index = sub { die "Another kind of failure" };
+    use warnings;
+
+    like(exception { App::Prove::Elasticsearch::Indexer::index_results({ name => 'bungle3.test' }) },qr/failed to index/i, "check_index other failure passed through");
 
 }
 
