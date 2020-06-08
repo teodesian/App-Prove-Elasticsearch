@@ -225,12 +225,20 @@ sub index_results {
     $idx //= App::Prove::Elasticsearch::Utils::get_last_index($e,$index);
     $idx++;
 
-    $e->index(
-        index => $index,
-        id    => $idx,
-        type  => $index,
-        body  => $result,
-    );
+    eval {
+        $e->index(
+            index => $index,
+            id    => $idx,
+            type  => $index,
+            body  => $result,
+        );
+    };
+    if ($@) {
+        if ((ref $@) eq "Search::Elasticsearch::Error::NoNodes") {
+            print "Failed to index due to no nodes online - continuing: $@\n";
+            return;
+        }
+    }
 
     my $doc_exists = $e->exists(index => $index, type => 'testsuite', id => $idx );
     if (!defined($doc_exists) || !int($doc_exists)) {
