@@ -9,6 +9,9 @@ use warnings;
 use App::Prove::Elasticsearch::Utils();
 
 use Search::Elasticsearch();
+use JSON::MaybeXS();
+use File::Temp();
+use File::Slurper();
 use List::Util 1.33;
 
 =head1 SYNOPSIS
@@ -41,6 +44,7 @@ our $max_query_size = 1000;
 our $e;
 our $bulk_helper;
 our $idx;
+our %stashed;
 
 =head1 SUBROUTINES
 
@@ -54,23 +58,21 @@ Dies if the server cannot be reached, or the index creation fails.
 sub check_index {
     my $conf = shift;
 
-    my $port = $conf->{'server.port'} ? ':'.$conf->{'server.port'} : '';
+    my $port = $conf->{'server.port'} ? ':' . $conf->{'server.port'} : '';
     die "server must be specified" unless $conf->{'server.host'};
-    die("port must be specified") unless $port;
+    die("port must be specified")  unless $port;
     my $serveraddress = "$conf->{'server.host'}$port";
-    $e //= Search::Elasticsearch->new(
-        nodes           => $serveraddress,
-    );
+    $e //= Search::Elasticsearch->new( nodes => $serveraddress, );
 
     #XXX for debugging
     #$e->indices->delete( index => $index );
 
-    if (!$e->indices->exists( index => $index )) {
+    if ( !$e->indices->exists( index => $index ) ) {
         $e->indices->create(
             index => $index,
             body  => {
                 index => {
-                    similarity         => {
+                    similarity => {
                         default => {
                             type => "classic"
                         }
@@ -81,8 +83,9 @@ sub check_index {
                         default => {
                             type      => "custom",
                             tokenizer => "whitespace",
-                            filter =>
-                              [ 'lowercase', 'std_english_stop', 'custom_stop' ]
+                            filter    => [
+                                'lowercase', 'std_english_stop', 'custom_stop'
+                            ]
                         }
                     },
                     filter => {
@@ -99,13 +102,13 @@ sub check_index {
                 mappings => {
                     testsuite => {
                         properties => {
-                            id      => { type => "integer" },
-                            elapsed => { type => "integer" },
-                            occurred      => {
+                            id       => { type => "integer" },
+                            elapsed  => { type => "integer" },
+                            occurred => {
                                 type   => "date",
                                 format => "yyyy-MM-dd HH:mm:ss"
                             },
-                            executor           => {
+                            executor => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
@@ -115,7 +118,7 @@ sub check_index {
                                     keyword => { type => "keyword" }
                                 }
                             },
-                            status             => {
+                            status => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
@@ -125,7 +128,7 @@ sub check_index {
                                     keyword => { type => "keyword" }
                                 }
                             },
-                            version            => {
+                            version => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
@@ -135,7 +138,7 @@ sub check_index {
                                     keyword => { type => "keyword" }
                                 }
                             },
-                            test_version    => {
+                            test_version => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
@@ -145,7 +148,7 @@ sub check_index {
                                     keyword => { type => "keyword" }
                                 }
                             },
-                            platform           => {
+                            platform => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
@@ -155,7 +158,7 @@ sub check_index {
                                     keyword => { type => "keyword" }
                                 }
                             },
-                            path               => {
+                            path => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
@@ -165,7 +168,7 @@ sub check_index {
                                     keyword => { type => "keyword" }
                                 }
                             },
-                            defect             => {
+                            defect => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
@@ -175,8 +178,8 @@ sub check_index {
                                     keyword => { type => "keyword" }
                                 }
                             },
-                            steps_planned      => { type => "integer" },
-                            body               => {
+                            steps_planned => { type => "integer" },
+                            body          => {
                                 type        => "text",
                                 analyzer    => "default",
                                 fielddata   => "true",
@@ -194,7 +197,7 @@ sub check_index {
                                 }
                             },
                             steps => {
-                                properties  => {
+                                properties => {
                                     number  => { type => "integer" },
                                     text    => { type => "text" },
                                     status  => { type => "text" },
@@ -222,7 +225,7 @@ sub index_results {
 
     die("check_index must be run first") unless $e;
 
-    $idx //= App::Prove::Elasticsearch::Utils::get_last_index($e,$index);
+    $idx //= App::Prove::Elasticsearch::Utils::get_last_index( $e, $index );
     $idx++;
 
     eval {
@@ -234,18 +237,49 @@ sub index_results {
         );
     };
     if ($@) {
-        if ((ref $@) eq "Search::Elasticsearch::Error::NoNodes") {
+        if ( ( ref $@ ) eq "Search::Elasticsearch::Error::NoNodes" ) {
             print "Failed to index due to no nodes online - continuing: $@\n";
+            _stash_result_for_retry($result);
             return;
         }
     }
 
-    my $doc_exists = $e->exists(index => $index, type => 'testsuite', id => $idx );
-    if (!defined($doc_exists) || !int($doc_exists)) {
-        die "Failed to Index $result->{'name'}, could find no record with ID $idx\n";
-    } else {
-        print "Successfully Indexed test: $result->{'name'} with result ID $idx\n";
+    my $doc_exists =
+      $e->exists( index => $index, type => 'testsuite', id => $idx );
+    if ( !defined($doc_exists) || !int($doc_exists) ) {
+        die
+"Failed to Index $result->{'name'}, could find no record with ID $idx\n";
     }
+    print "Successfully Indexed test: $result->{'name'} with result ID $idx\n";
+
+    #Now that we've proven the server is up, let's re-upload if we need to.
+    _resubmit_stashed_documents();
+}
+
+sub _stash_result_for_retry {
+    my ($result) = @_;
+    my $encoder  = JSON::MaybeXS->new( utf8 => 1 );
+    my $dump     = $encoder->encode_json($result);
+    my ( $fh, $filename ) = File::Temp::tempfile();
+    print $fh $dump;
+
+#Keep a hold of the File::Temp object so that when our program goes out of scope everything is cleaned up.
+    $stashed{$filename} = $fh;
+}
+
+# Let's give it the "college try TM" with a bulk dump, and give up if that second try fails
+sub _resubmit_stashed_documents {
+    my @files = keys(%stashed);
+    return unless @files;
+
+    my $encoder   = JSON::MaybeXS->new( utf8 => 1 );
+    my @bulk_load = map {
+        my $out = File::Slurper::read_text($_);
+        $encoder->decode_json($out);
+        close $stashed{$_};
+        delete $stashed{$_};
+    } @files;
+    return bulk_index_results(@bulk_load);
 }
 
 =head2 bulk_index_results(@results)
@@ -258,16 +292,17 @@ It is up to the caller to chunk inputs as is appropriate for your installation.
 =cut
 
 sub bulk_index_results {
-	my @results = @_;
-	$bulk_helper //= $e->bulk_helper(
-		index    => $index,
-		type     => $index,
-	);
+    my @results = @_;
+    $bulk_helper //= $e->bulk_helper(
+        index => $index,
+        type  => $index,
+    );
 
-    $idx //= App::Prove::Elasticsearch::Utils::get_last_index($e,$index);
+    $idx //= App::Prove::Elasticsearch::Utils::get_last_index( $e, $index );
 
-	$bulk_helper->index(map { $idx++; { id => $idx, source => $_ } } @results);
-	$bulk_helper->flush();
+    $bulk_helper->index( map { $idx++; { id => $idx, source => $_ } }
+          @results );
+    $bulk_helper->flush();
 }
 
 =head2 associate_case_with_result(%config)
@@ -303,9 +338,11 @@ sub associate_case_with_result {
             query => {
                 bool => {
                     must => [
-                        {match => {
-                            name => $opts{case},
-                        }},
+                        {
+                            match => {
+                                name => $opts{case},
+                            }
+                        },
                     ],
                 },
             },
@@ -313,40 +350,59 @@ sub associate_case_with_result {
     );
 
     #It's normal to have multiple platforms in a document.
-    foreach my $plat (@{$opts{platforms}}) {
-        push(@{$q{body}{query}{bool}{must}}, { match => { platform => $plat } } );
+    foreach my $plat ( @{ $opts{platforms} } ) {
+        push(
+            @{ $q{body}{query}{bool}{must} },
+            { match => { platform => $plat } }
+        );
     }
 
     #It's NOT normal to have multiple versions in a document.
-    foreach my $version (@{$opts{versions}}) {
-        push(@{$q{body}{query}{bool}{should}}, { match => { version => $version } } );
+    foreach my $version ( @{ $opts{versions} } ) {
+        push(
+            @{ $q{body}{query}{bool}{should} },
+            { match => { version => $version } }
+        );
     }
 
     #Paginate the query, TODO short-circuit when we stop getting results?
-    my $hits = App::Prove::Elasticsearch::Utils::do_paginated_query($e,$max_query_size,%q);
+    my $hits = App::Prove::Elasticsearch::Utils::do_paginated_query( $e,
+        $max_query_size, %q );
     return 0 unless scalar(@$hits);
 
     #Now, update w/ the defect.
     my $failures = 0;
     my $attempts = 0;
     foreach my $hit (@$hits) {
-        $hit->{_source}->{platform} = [$hit->{_source}->{platform}] if ref($hit->{_source}->{platform}) ne 'ARRAY';
-        next if (scalar(@{$opts{versions}}) && !$hit->{_source}->{version});
-        next unless List::Util::any { $hit->{_source}->{version} eq $_ } @{$opts{versions}};
-        next if (scalar(@{$opts{platforms}}) && !$hit->{_source}->{platform});
-        next unless List::Util::all { my $p = $_; grep { $_ eq $p } @{$hit->{_source}->{platform}} } @{$opts{platforms}};
+        $hit->{_source}->{platform} = [ $hit->{_source}->{platform} ]
+          if ref( $hit->{_source}->{platform} ) ne 'ARRAY';
+        next
+          if ( scalar( @{ $opts{versions} } ) && !$hit->{_source}->{version} );
+        next
+          unless List::Util::any { $hit->{_source}->{version} eq $_ }
+        @{ $opts{versions} };
+        next
+          if ( scalar( @{ $opts{platforms} } )
+            && !$hit->{_source}->{platform} );
+        next unless List::Util::all {
+            my $p = $_;
+            grep { $_ eq $p } @{ $hit->{_source}->{platform} }
+        }
+        @{ $opts{platforms} };
         next unless $hit->{_source}->{name} eq $opts{case};
 
         $attempts++;
+
         #Merge the existing defects with the ones we are adding in
         $hit->{defect} //= [];
-        my @df_merged = List::Util::uniq((@{$hit->{defect}},@{$opts{defects}}));
+        my @df_merged =
+          List::Util::uniq( ( @{ $hit->{defect} }, @{ $opts{defects} } ) );
 
         my %update = (
             index => $index,
-            id => $hit->{_id},
-            type => 'result',
-            body => {
+            id    => $hit->{_id},
+            type  => 'result',
+            body  => {
                 doc => {
                     defect => \@df_merged,
                 },
@@ -356,14 +412,17 @@ sub associate_case_with_result {
 
         my $res = $e->update(%update);
 
-        print "Associated cases to document $hit->{_id}\n" if $res->{result} eq 'updated';
-        if (!grep { $res->{result} eq $_ } qw{updated noop}) {
-            print "Something went wrong associating cases to document $hit->{_id}!\n$res->{result}\n";
+        print "Associated cases to document $hit->{_id}\n"
+          if $res->{result} eq 'updated';
+        if ( !grep { $res->{result} eq $_ } qw{updated noop} ) {
+            print
+"Something went wrong associating cases to document $hit->{_id}!\n$res->{result}\n";
             $failures++;
         }
     }
 
-    print "No cases matching your query could be found.  No action was taken.\n" unless $attempts;
+    print "No cases matching your query could be found.  No action was taken.\n"
+      unless $attempts;
 
     return $failures;
 }

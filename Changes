@@ -1,5 +1,6 @@
-0.002 2019-01-?? TEODESIAN
+0.002 2020-06-16 TEODESIAN
     - Clarify the role of testsuites in ape plan docu
+    - Re-try in the event test uploads fail
 
 0.001 2018-06-17 TEODESIAN
     - Initial module release
