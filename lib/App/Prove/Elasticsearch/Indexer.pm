@@ -254,17 +254,19 @@ sub index_results {
 
     #Now that we've proven the server is up, let's re-upload if we need to.
     _resubmit_stashed_documents();
+    return 1;
 }
 
 sub _stash_result_for_retry {
     my ($result) = @_;
     my $encoder  = JSON::MaybeXS->new( utf8 => 1 );
-    my $dump     = $encoder->encode_json($result);
-    my ( $fh, $filename ) = File::Temp::tempfile();
+    my $dump     = $encoder->encode($result);
+    my $fh       = File::Temp->new();
     print $fh $dump;
+    $fh->flush();
 
-#Keep a hold of the File::Temp object so that when our program goes out of scope everything is cleaned up.
-    $stashed{$filename} = $fh;
+    # File::Temp unlinks the file when this object is destroyed, so it lives as long as its entry here.
+    $stashed{ $fh->filename } = $fh;
 }
 
 # Let's give it the "college try TM" with a bulk dump, and give up if that second try fails
@@ -274,10 +276,9 @@ sub _resubmit_stashed_documents {
 
     my $encoder   = JSON::MaybeXS->new( utf8 => 1 );
     my @bulk_load = map {
-        my $out = File::Slurper::read_text($_);
-        $encoder->decode_json($out);
-        close $stashed{$_};
+        my $doc = $encoder->decode( File::Slurper::read_binary($_) );
         delete $stashed{$_};
+        $doc;
     } @files;
     return bulk_index_results(@bulk_load);
 }
