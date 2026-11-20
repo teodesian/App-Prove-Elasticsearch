@@ -39,6 +39,7 @@ sub test_new : Test(5) {
 
     my $expected = {
        'allplatforms' => undef,
+       'dump' => undef,
        'exts' => [
          '.t'
        ],
