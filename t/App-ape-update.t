@@ -1,8 +1,9 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More tests => 9;
 use Test::Deep;
+use Capture::Tiny qw{capture_stdout};
 
 use FindBin;
 use App::ape::update;
@@ -37,5 +38,8 @@ local *BogusIndexer::associate_case_with_result = sub { return 2 };
 use warnings;
 is($obj->run(),2,"Bad exit code provided when good args are passed, but failure occurs");
 
-like(qx{$FindBin::Bin/../bin/ape update -h},qr/usage/i,"Usage printed when run -h, file is executable");
-is($?,0,"Good exit code from binary in -h mode");
+my $ape = "$FindBin::Bin/../bin/ape";
+ok(-x $ape, "bin/ape is executable");
+my ($usage, $exit) = capture_stdout { system($^X, $ape, qw{update -h}) };
+like($usage,qr/usage/i,"Usage printed when run -h");
+is($exit,0,"Good exit code from binary in -h mode");

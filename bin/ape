@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!perl
 
 # ABSTRACT: ape - An elasticsearch based command-line test management system
 # PODNAME: ape
