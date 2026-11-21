@@ -1,7 +1,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 20;
+use Test::More tests => 24;
 use Test::Fatal;
 use Test::Deep;
 use Capture::Tiny qw{capture_merged};
@@ -65,6 +65,39 @@ use App::Prove::Elasticsearch::Indexer;
 
     like(exception { App::Prove::Elasticsearch::Indexer::index_results({ name => 'bungle3.test' }) },qr/failed to index/i, "check_index other failure passed through");
 
+}
+
+# A result stashed while no node answers is uploaded by the next index_results that succeeds
+{
+    %App::Prove::Elasticsearch::Indexer::stashed = ();
+    $App::Prove::Elasticsearch::Indexer::bulk_helper = undef;
+    my @bulked;
+
+    no warnings qw{redefine once};
+    use Search::Elasticsearch::Util qw(throw);
+    local *Search::Elasticsearch::new = sub { return bless({},'Search::Elasticsearch') };
+    local *Search::Elasticsearch::exists = sub { return 1 };
+    local *Search::Elasticsearch::bulk_helper = sub { return bless({},'Search::Elasticsearch::Bulk') };
+    local *Search::Elasticsearch::Bulk::index = sub { shift; push(@bulked, map { $_->{source} } @_) };
+    local *Search::Elasticsearch::Bulk::flush = sub { };
+    local *Search::Elasticsearch::index = sub { throw( "NoNodes", "No nodes are blah blah blah" ) };
+    use warnings;
+
+    $App::Prove::Elasticsearch::Indexer::e = bless({},'Search::Elasticsearch');
+    my $stashed = { name => "stashed.test", body => "caf\x{e9}" };
+    capture_merged { App::Prove::Elasticsearch::Indexer::index_results($stashed) };
+    my ($stash_file) = keys(%App::Prove::Elasticsearch::Indexer::stashed);
+
+    no warnings qw{redefine once};
+    local *Search::Elasticsearch::index = sub { };
+    use warnings;
+
+    my $ret;
+    capture_merged { $ret = App::Prove::Elasticsearch::Indexer::index_results({ name => 'after.test' }) };
+    is($ret, 1, "index_results returns 1 when it also uploads stashed results");
+    is_deeply(\@bulked, [$stashed], "the stashed result is uploaded as it was given");
+    is_deeply(\%App::Prove::Elasticsearch::Indexer::stashed, {}, "nothing is left stashed after the upload");
+    ok(!-e $stash_file, "the stash file is removed after the upload");
 }
 
 # associate_case_with_result
